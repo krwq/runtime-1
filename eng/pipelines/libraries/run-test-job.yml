@@ -10,7 +10,8 @@ parameters:
   pool: ''
   testScope: ''
   helixQueues: []
-  dependsOnBuildConfiguration: Debug
+  dependsOnTestBuildConfiguration: Debug
+  dependsOnTestArchitecture: x64
   condition: true
   variables: {}
 
@@ -28,12 +29,17 @@ jobs:
       container: '' # we just send to helix, no need to use a container.
       condition: ${{ parameters.condition }}
       pool: ${{ parameters.pool }}
-      name: test_run
-      displayName: 'Test Run'
+      ${{ if ne(parameters.liveCoreClrBuildConfig, '') }}:
+        displayName: ${{ format('Test Run {0} CoreCLR', parameters.liveCoreClrBuildConfig) }}
+        name: ${{ format('test_run_{0}_coreclr', parameters.liveCoreClrBuildConfig) }}
+      ${{ if eq(parameters.liveCoreClrBuildConfig, '') }}:
+        displayName: 'Test Run'
+        name: test_run
 
       dependsOn:
       - ${{ format('libraries_build_{0}_{1}{2}_{3}_{4}', parameters.framework, parameters.osGroup, parameters.osSubgroup, parameters.archType, parameters.buildConfig) }}
-      - ${{ format('libraries_test_build_{0}_{1}_x64_{2}', parameters.framework, parameters.osGroup, parameters.dependsOnBuildConfiguration) }}
+      - ${{ format('coreclr_product_build_{0}{1}_{2}_{3}', parameters.osGroup, parameters.osSubgroup, parameters.archType, parameters.liveCoreClrBuildConfig) }}
+      - ${{ format('libraries_test_build_{0}_{1}_{2}_{3}', parameters.framework, parameters.osGroup, parameters.dependsOnTestArchitecture, parameters.dependsOnTestBuildConfiguration) }}
 
       variables:
         - _archiveTestsParameter: /p:ArchiveTests=true
@@ -55,6 +61,14 @@ jobs:
             unpackFolder: $(Build.SourcesDirectory)/artifacts
             artifactName: $(librariesTestsArtifactName)
             artifactFileName: $(librariesTestsArtifactName)$(archiveExtension)
+
+        - ${{ if ne(parameters.liveCoreClrBuildConfig, '') }}:
+          - script: $(_msbuildCommand) src/libraries/restore/runtime/runtime.depproj 
+                    $(_coreClrArtifactsPathArg)
+                    $(_runtimeOSArg)
+                    /p:ArchGroup=archType
+                    /p:ConfigurationGroup=${{ parameters.buildConfig }}
+            displayName: Override CoreCLR from live drop
 
         - template: /eng/pipelines/libraries/helix.yml
           parameters:

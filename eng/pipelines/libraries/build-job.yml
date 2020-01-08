@@ -17,6 +17,7 @@ parameters:
   timeoutInMinutes: 150
   preBuildSteps: []
   container: ''
+  condition: true
   variables: {}
   pool: ''
   runTests: false
@@ -36,6 +37,7 @@ jobs:
       timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
       preBuildSteps: ${{ parameters.preBuildSteps }}
       container: ${{ parameters.container }}
+      condition: ${{ parameters.condition }}
       pool: ${{ parameters.pool }}
       testScope: ${{ parameters.testScope }}
       name: build
