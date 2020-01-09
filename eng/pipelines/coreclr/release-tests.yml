@@ -28,6 +28,18 @@ jobs:
       timeoutInMinutes: 120
 
 #
+# Release library builds
+#
+- template: /eng/pipelines/common/platform-matrix.yml
+  parameters:
+    jobTemplate: /eng/pipelines/libraries/build-job.yml
+    buildConfig: Release
+    platformGroup: all
+    jobParameters:
+      isOfficialBuild: false
+      liveCoreClrBuildConfig: release
+
+#
 # Release test builds
 #
 - template: /eng/pipelines/common/platform-matrix.yml
@@ -36,6 +48,7 @@ jobs:
     buildConfig: release
     platformGroup: all
     testGroup: outerloop
+    liveLibrariesBuildConfig: Release
 
 #
 # Release test runs
@@ -49,6 +62,7 @@ jobs:
     helixQueuesTemplate: /eng/pipelines/coreclr/templates/helix-queues-setup.yml
     jobParameters:
       testGroup: outerloop
+      liveLibrariesBuildConfig: Release
 
 #
 # Release R2R test runs
@@ -64,7 +78,7 @@ jobs:
       testGroup: outerloop
       readyToRun: true
       displayNameArgs: R2R
-
+      liveLibrariesBuildConfig: Release
 
 #
 # Crossgen-comparison jobs
@@ -77,3 +91,4 @@ jobs:
     - Linux_arm
     helixQueueGroup: ci
     helixQueuesTemplate: /eng/pipelines/coreclr/templates/helix-queues-setup.yml
+    liveLibrariesBuildConfig: Release
