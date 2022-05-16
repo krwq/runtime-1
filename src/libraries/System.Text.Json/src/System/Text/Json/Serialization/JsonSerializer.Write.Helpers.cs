@@ -67,7 +67,7 @@ namespace System.Text.Json
             jsonTypeInfo.EnsureConfigured();
             state.Initialize(jsonTypeInfo, supportContinuation: false, supportAsync: false);
 
-            JsonConverter converter = jsonTypeInfo.PropertyInfoForTypeInfo.ConverterBase;
+            JsonConverter converter = jsonTypeInfo.Converter;
             Debug.Assert(converter != null);
             Debug.Assert(jsonTypeInfo.Options != null);
 

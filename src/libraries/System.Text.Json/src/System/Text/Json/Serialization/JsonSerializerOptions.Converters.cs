@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using System.Runtime.ExceptionServices;
 using System.Text.Json.Reflection;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Converters;
@@ -26,50 +25,34 @@ namespace System.Text.Json
         private static JsonConverter[]? s_defaultFactoryConverters;
 
         // Stores the JsonTypeInfo factory, which requires unreferenced code and must be rooted by the reflection-based serializer.
-        private static Func<Type, JsonSerializerOptions, JsonTypeInfo>? s_typeInfoCreationFunc;
+        private static IJsonTypeInfoResolver? s_defaultTypeInfoResolver;
 
         [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]
         [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
+        [MemberNotNull(nameof(s_defaultTypeInfoResolver))]
         private static void RootReflectionSerializerDependencies()
         {
             // s_typeInfoCreationFunc is the last field assigned.
             // Use it as the sentinel to ensure that all dependencies are initialized.
-            if (Volatile.Read(ref s_typeInfoCreationFunc) is null)
+            if (Volatile.Read(ref s_defaultTypeInfoResolver) is null)
             {
                 s_defaultSimpleConverters = GetDefaultSimpleConverters();
                 s_defaultFactoryConverters = GetDefaultFactoryConverters();
                 // Explicitly ensure that the previous fields are initialized along with this one.
-                Volatile.Write(ref s_typeInfoCreationFunc, CreateJsonTypeInfo);
+                // We also need to ensure that all threads use same instance of s_defaultTypeInfoResolver or
+                // otherwise EqualityComparer for CachingContext may fail even though
+                // two options might assign _typeInfoResolver to s_defaultTypeInfoResolver
+                Interlocked.CompareExchange(ref s_defaultTypeInfoResolver, new DefaultJsonTypeInfoResolver(mutable: false), null);
             }
 
-            [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]
-            [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
-            static JsonTypeInfo CreateJsonTypeInfo(Type type, JsonSerializerOptions options)
-            {
-                JsonTypeInfo.ValidateType(type, null, null, options);
-
-                MethodInfo methodInfo = typeof(JsonSerializerOptions).GetMethod(nameof(CreateReflectionJsonTypeInfo), BindingFlags.NonPublic | BindingFlags.Instance)!;
-#if NETCOREAPP
-                return (JsonTypeInfo)methodInfo.MakeGenericMethod(type).Invoke(options, BindingFlags.NonPublic | BindingFlags.DoNotWrapExceptions, null, null, null)!;
-#else
-                try
-                {
-                    return (JsonTypeInfo)methodInfo.MakeGenericMethod(type).Invoke(options, null)!;
-                }
-                catch (TargetInvocationException ex)
-                {
-                    // Some of the validation is done during construction (i.e. validity of JsonConverter, inner types etc.)
-                    // therefore we need to unwrap TargetInvocationException for better user experience
-                    ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
-                    throw null!;
-                }
-#endif
-            }
+            // This isn't strictly needed but we will get nullability warning because `Volatile.Read(ref s_defaultTypeInfoResolver) is null`
+            // is not recognized by compiler as a null check
+            Debug.Assert(s_defaultTypeInfoResolver != null);
         }
 
         [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]
         [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
-        private JsonTypeInfo<T> CreateReflectionJsonTypeInfo<T>()
+        internal JsonTypeInfo<T> CreateReflectionJsonTypeInfo<T>()
         {
             return new ReflectionJsonTypeInfo<T>(this);
         }
@@ -156,11 +139,11 @@ namespace System.Text.Json
         /// </remarks>
         public IList<JsonPolymorphicTypeConfiguration> PolymorphicTypeConfigurations => _polymorphicTypeConfigurations;
 
-        internal JsonConverter GetConverterFromMember(Type? parentClassType, Type propertyType, MemberInfo? memberInfo)
+        // This may return factory converter
+        internal JsonConverter? GetCustomConverterFromMember(Type? parentClassType, Type typeToConvert, MemberInfo? memberInfo)
         {
-            JsonConverter converter = null!;
+            JsonConverter? converter = null;
 
-            // Priority 1: attempt to get converter from JsonConverterAttribute on property.
             if (memberInfo != null)
             {
                 Debug.Assert(parentClassType != null);
@@ -170,24 +153,41 @@ namespace System.Text.Json
 
                 if (converterAttribute != null)
                 {
-                    converter = GetConverterFromAttribute(converterAttribute, typeToConvert: propertyType, classTypeAttributeIsOn: parentClassType!, memberInfo);
+                    converter = GetConverterFromAttribute(converterAttribute, typeToConvert, classTypeAttributeIsOn: parentClassType!, memberInfo);
                 }
             }
 
-            if (converter == null)
-            {
-                converter = GetConverterInternal(propertyType);
-                Debug.Assert(converter != null);
-            }
+            return converter;
+        }
 
+        internal JsonConverter GetConverterForType(Type typeToConvert)
+        {
+            JsonConverter converter = GetConverterInternal(typeToConvert);
+            Debug.Assert(converter != null);
+
+            converter = ExpandFactoryConverter(converter, typeToConvert);
+
+            CheckConverterNullabilityIsSameAsPropertyType(converter, typeToConvert);
+
+            return converter;
+        }
+
+        [return: NotNullIfNotNull("converter")]
+        internal JsonConverter? ExpandFactoryConverter(JsonConverter? converter, Type typeToConvert)
+        {
             if (converter is JsonConverterFactory factory)
             {
-                converter = factory.GetConverterInternal(propertyType, this);
+                converter = factory.GetConverterInternal(typeToConvert, this);
 
                 // A factory cannot return null; GetConverterInternal checked for that.
                 Debug.Assert(converter != null);
             }
 
+            return converter;
+        }
+
+        internal static void CheckConverterNullabilityIsSameAsPropertyType(JsonConverter converter, Type propertyType)
+        {
             // User has indicated that either:
             //   a) a non-nullable-struct handling converter should handle a nullable struct type or
             //   b) a nullable-struct handling converter should handle a non-nullable struct type.
@@ -201,8 +201,6 @@ namespace System.Text.Json
             {
                 ThrowHelper.ThrowInvalidOperationException_ConverterCanConvertMultipleTypes(propertyType, converter);
             }
-
-            return converter;
         }
 
         /// <summary>
@@ -243,12 +241,12 @@ namespace System.Text.Json
             return GetConverterFromType(typeToConvert);
         }
 
-        private JsonConverter GetConverterFromType(Type typeToConvert)
+        internal JsonConverter GetConverterFromType(Type typeToConvert)
         {
             Debug.Assert(typeToConvert != null);
 
             // Priority 1: If there is a JsonSerializerContext, fetch the converter from there.
-            JsonConverter? converter = _serializerContext?.GetTypeInfo(typeToConvert)?.PropertyInfoForTypeInfo?.ConverterBase;
+            JsonConverter? converter = _serializerContext?.GetTypeInfo(typeToConvert)?.Converter;
 
             // Priority 2: Attempt to get custom converter added at runtime.
             // Currently there is not a way at runtime to override the [JsonConverter] when applied to a property.

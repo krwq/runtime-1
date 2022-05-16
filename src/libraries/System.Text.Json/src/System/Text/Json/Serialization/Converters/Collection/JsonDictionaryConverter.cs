@@ -41,7 +41,7 @@ namespace System.Text.Json.Serialization
         {
             JsonTypeInfo typeInfo = state.Current.JsonTypeInfo;
 
-            if (typeInfo.CreateObject is null)
+            if (typeInfo.UntypedCreateObject is null)
             {
                 // The contract model was not able to produce a default constructor for two possible reasons:
                 // 1. Either the declared collection type is abstract and cannot be instantiated.
@@ -56,7 +56,7 @@ namespace System.Text.Json.Serialization
                 }
             }
 
-            state.Current.ReturnValue = typeInfo.CreateObject()!;
+            state.Current.ReturnValue = typeInfo.UntypedCreateObject()!;
             Debug.Assert(state.Current.ReturnValue is TDictionary);
         }
 
@@ -70,7 +70,7 @@ namespace System.Text.Json.Serialization
 
         protected static JsonConverter<T> GetConverter<T>(JsonTypeInfo typeInfo)
         {
-            JsonConverter<T> converter = (JsonConverter<T>)typeInfo.PropertyInfoForTypeInfo.ConverterBase;
+            JsonConverter<T> converter = (JsonConverter<T>)typeInfo.Converter;
             Debug.Assert(converter != null); // It should not be possible to have a null converter at this point.
 
             return converter;

@@ -65,11 +65,12 @@ namespace System.Text.Json
         /// </summary>
         public JsonSerializerOptions()
         {
-            _converters = new ConfigurationList<JsonConverter>(this);
+            _converters = new ConfigurationList<JsonConverter>() { VerifyMutable = VerifyMutable };
 
 #pragma warning disable CA2252 // This API requires opting into preview features
-            _polymorphicTypeConfigurations = new ConfigurationList<JsonPolymorphicTypeConfiguration>(this)
+            _polymorphicTypeConfigurations = new ConfigurationList<JsonPolymorphicTypeConfiguration>()
             {
+                VerifyMutable = VerifyMutable,
                 OnElementAdded = static config => { config.IsAssignedToOptionsInstance = true; }
             };
 #pragma warning restore CA2252 // This API requires opting into preview features
@@ -96,9 +97,9 @@ namespace System.Text.Json
             _jsonPropertyNamingPolicy = options._jsonPropertyNamingPolicy;
             _readCommentHandling = options._readCommentHandling;
             _referenceHandler = options._referenceHandler;
-            _converters = new ConfigurationList<JsonConverter>(this, options._converters);
+            _converters = new ConfigurationList<JsonConverter>(options._converters) { VerifyMutable = VerifyMutable };
 #pragma warning disable CA2252 // This API requires opting into preview features
-            _polymorphicTypeConfigurations = new ConfigurationList<JsonPolymorphicTypeConfiguration>(this, options._polymorphicTypeConfigurations);
+            _polymorphicTypeConfigurations = new ConfigurationList<JsonPolymorphicTypeConfiguration>(options._polymorphicTypeConfigurations) { VerifyMutable = VerifyMutable };
 #pragma warning restore CA2252 // This API requires opting into preview features
             _encoder = options._encoder;
             _defaultIgnoreCondition = options._defaultIgnoreCondition;
@@ -114,6 +115,11 @@ namespace System.Text.Json
             _includeFields = options._includeFields;
             _propertyNameCaseInsensitive = options._propertyNameCaseInsensitive;
             _writeIndented = options._writeIndented;
+
+            if (_serializerContext == null && _typeInfoResolver != s_defaultTypeInfoResolver)
+            {
+                _typeInfoResolver = options._typeInfoResolver;
+            }
 
             EffectiveMaxDepth = options.EffectiveMaxDepth;
             ReferenceHandlingStrategy = options.ReferenceHandlingStrategy;
@@ -167,7 +173,41 @@ namespace System.Text.Json
             VerifyMutable();
             TContext context = new();
             _serializerContext = context;
+            _typeInfoResolver = context;
             context._options = this;
+        }
+
+        /// <summary>
+        /// Gets or sets JsonTypeInfo resolver.
+        /// </summary>
+        public IJsonTypeInfoResolver TypeInfoResolver
+        {
+            [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]
+            [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
+            get
+            {
+                if (_typeInfoResolver != null)
+                {
+                    return _typeInfoResolver;
+                }
+
+                EnsureInitializedForReflectionSerializer();
+                return _typeInfoResolver;
+            }
+            set
+            {
+                VerifyMutable();
+
+                if (value == null)
+                {
+                    throw new ArgumentNullException(nameof(value));
+                }
+
+                _typeInfoResolver = value;
+                // If _typeInfoResolver is JsonSerializerContext we still assign _serializerContext to null.
+                // This way we prevent any automatic fallback logic while at the same time not changing existing behavior
+                _serializerContext = null;
+            }
         }
 
         /// <summary>
@@ -566,6 +606,7 @@ namespace System.Text.Json
             {
                 VerifyMutable();
                 _serializerContext = value;
+                _typeInfoResolver = value;
             }
         }
 
@@ -597,36 +638,42 @@ namespace System.Text.Json
         }
 
         /// <summary>
-        /// Whether the options instance has been primed for reflection-based serialization.
+        /// JsonTypeInfo resolver used for serialization.
         /// </summary>
-        internal bool IsInitializedForReflectionSerializer;
+        internal IJsonTypeInfoResolver? _typeInfoResolver;
 
         /// <summary>
         /// Initializes the converters for the reflection-based serializer.
-        /// <seealso cref="InitializeForReflectionSerializer"/> must be checked before calling.
         /// </summary>
         [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]
         [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
-        internal void InitializeForReflectionSerializer()
+        [MemberNotNull(nameof(_typeInfoResolver))]
+        internal void EnsureInitializedForReflectionSerializer()
         {
+            if (s_defaultTypeInfoResolver != null && _typeInfoResolver != null && (_serializerContext == null || _serializerContext.FallbackResolver != null))
+            {
+                return;
+            }
+
             RootReflectionSerializerDependencies();
-            Volatile.Write(ref IsInitializedForReflectionSerializer, true);
+            _typeInfoResolver ??= s_defaultTypeInfoResolver;
+
+            if (_serializerContext != null)
+            {
+                _serializerContext.FallbackResolver ??= s_defaultTypeInfoResolver;
+            }
+
             if (_cachingContext != null)
             {
-                _cachingContext.Options.IsInitializedForReflectionSerializer = true;
+                // This only applies if resolver wasn't previously initialized
+                Debug.Assert(_cachingContext.Options._typeInfoResolver != null || _typeInfoResolver == s_defaultTypeInfoResolver);
+                _cachingContext.Options._typeInfoResolver ??= s_defaultTypeInfoResolver;
             }
         }
 
         private JsonTypeInfo GetJsonTypeInfoFromContextOrCreate(Type type)
         {
-            JsonTypeInfo? info = _serializerContext?.GetTypeInfo(type);
-            if (info == null && IsInitializedForReflectionSerializer)
-            {
-                Debug.Assert(
-                    s_typeInfoCreationFunc != null,
-                    "Reflection-based JsonTypeInfo creator should be initialized if IsInitializedForReflectionSerializer is true.");
-                info = s_typeInfoCreationFunc(type, this);
-            }
+            JsonTypeInfo? info = _typeInfoResolver?.GetTypeInfo(type, this);
 
             if (info == null)
             {

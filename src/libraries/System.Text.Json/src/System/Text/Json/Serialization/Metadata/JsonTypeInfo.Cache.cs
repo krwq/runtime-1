@@ -59,7 +59,9 @@ namespace System.Text.Json.Serialization.Metadata
             JsonConverter converter,
             JsonSerializerOptions options,
             JsonIgnoreCondition? ignoreCondition = null,
-            JsonTypeInfo? jsonTypeInfo = null)
+            JsonTypeInfo? jsonTypeInfo = null,
+            JsonConverter? customConverter = null,
+            bool isCustomProperty = false)
         {
             // Create the JsonPropertyInfo instance.
             JsonPropertyInfo jsonPropertyInfo = converter.CreateJsonPropertyInfo();
@@ -73,7 +75,10 @@ namespace System.Text.Json.Serialization.Metadata
                 converter,
                 ignoreCondition,
                 options,
-                jsonTypeInfo);
+                jsonTypeInfo,
+                isCustomProperty: isCustomProperty);
+
+            jsonPropertyInfo.CustomConverter = customConverter;
 
             return jsonPropertyInfo;
         }

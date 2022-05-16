@@ -18,6 +18,19 @@ namespace System.Text.Json.Serialization
         /// </summary>
         protected internal JsonConverter()
         {
+            Initialize();
+        }
+
+        internal JsonConverter(bool initialize)
+        {
+            if (initialize)
+            {
+                Initialize();
+            }
+        }
+
+        internal void Initialize()
+        {
             IsValueType = typeof(T).IsValueType;
             IsInternalConverter = GetType().Assembly == typeof(JsonConverter).Assembly;
 
@@ -62,6 +75,11 @@ namespace System.Text.Json.Serialization
         internal override sealed JsonParameterInfo CreateJsonParameterInfo()
         {
             return new JsonParameterInfo<T>();
+        }
+
+        internal override sealed JsonConverter<TargetType> CreateCastingConverter<TargetType>()
+        {
+            return new CastingConverter<TargetType, T>(this);
         }
 
         internal override Type? KeyType => null;
@@ -318,7 +336,7 @@ namespace System.Text.Json.Serialization
                 state.Current.PolymorphicSerializationState != PolymorphicSerializationState.PolymorphicReEntryStarted)
             {
                 JsonTypeInfo jsonTypeInfo = state.PeekNestedJsonTypeInfo();
-                Debug.Assert(jsonTypeInfo.PropertyInfoForTypeInfo.ConverterBase.TypeToConvert == TypeToConvert);
+                Debug.Assert(jsonTypeInfo.Converter.TypeToConvert == TypeToConvert);
 
                 bool canBePolymorphic = CanBePolymorphic || jsonTypeInfo.PolymorphicTypeResolver is not null;
                 JsonConverter? polymorphicConverter = canBePolymorphic ?

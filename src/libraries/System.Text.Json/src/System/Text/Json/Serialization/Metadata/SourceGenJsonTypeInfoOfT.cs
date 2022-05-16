@@ -34,7 +34,7 @@ namespace System.Text.Json.Serialization.Metadata
             }
             else
             {
-                SetCreateObjectFunc(objectInfo.ObjectCreator);
+                CreateObject = objectInfo.ObjectCreator;
             }
 
 
@@ -65,7 +65,7 @@ namespace System.Text.Json.Serialization.Metadata
             SerializeHandler = collectionInfo.SerializeHandler;
             CreateObjectWithArgs = createObjectWithArgs;
             AddMethodDelegate = addFunc;
-            SetCreateObjectFunc(collectionInfo.ObjectCreator);
+            CreateObject = collectionInfo.ObjectCreator;
         }
 
         private static JsonConverter GetConverter(JsonObjectInfoValues<T> objectInfo)
@@ -126,7 +126,7 @@ namespace System.Text.Json.Serialization.Metadata
                     return;
                 }
 
-                if (PropertyInfoForTypeInfo.ConverterBase.ElementType != null)
+                if (Converter.ElementType != null)
                 {
                     // Nullable<> or F# optional converter's strategy is set to element's strategy
                     return;
@@ -143,7 +143,7 @@ namespace System.Text.Json.Serialization.Metadata
             }
 
             Dictionary<string, JsonPropertyInfo>? ignoredMembers = null;
-            JsonPropertyDictionary<JsonPropertyInfo> propertyCache = new(Options.PropertyNameCaseInsensitive, array.Length);
+            JsonPropertyDictionary<JsonPropertyInfo> propertyCache = CreatePropertyCache(capacity: array.Length);
 
             for (int i = 0; i < array.Length; i++)
             {
@@ -180,14 +180,6 @@ namespace System.Text.Json.Serialization.Metadata
             }
 
             PropertyCache = propertyCache;
-        }
-
-        private void SetCreateObjectFunc(Func<T>? createObjectFunc)
-        {
-            if (createObjectFunc != null)
-            {
-                CreateObject = () => createObjectFunc();
-            }
         }
     }
 }

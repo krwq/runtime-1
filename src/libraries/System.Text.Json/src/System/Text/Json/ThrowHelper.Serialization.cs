@@ -140,6 +140,18 @@ namespace System.Text.Json
         }
 
         [DoesNotReturn]
+        public static void ThrowInvalidOperationException_SerializerContextOptionsImmutable()
+        {
+            throw new InvalidOperationException(SR.SerializerContextOptionsImmutable);
+        }
+
+        [DoesNotReturn]
+        public static void ThrowInvalidOperationException_TypeInfoResolverImmutable()
+        {
+            throw new InvalidOperationException(SR.TypeInfoResolverImmutable);
+        }
+
+        [DoesNotReturn]
         public static void ThrowInvalidOperationException_SerializerPropertyNameConflict(Type type, JsonPropertyInfo jsonPropertyInfo)
         {
             throw new InvalidOperationException(SR.Format(SR.SerializerPropertyNameConflict, type, jsonPropertyInfo.ClrName));
@@ -237,6 +249,18 @@ namespace System.Text.Json
             NotSupportedException ex = new NotSupportedException(
                 SR.Format(SR.ObjectWithParameterizedCtorRefMetadataNotSupported, jsonTypeInfo.Type));
             ThrowNotSupportedException(ref state, reader, ex);
+        }
+
+        [DoesNotReturn]
+        public static void ThrowInvalidOperationException_JsonTypeInfoPropertiesNotAccessibleForNonObject(JsonTypeInfoKind actualKind)
+        {
+            throw new InvalidOperationException(SR.Format(SR.JsonTypeInfoPropertiesNotAccessibleForNonObject, actualKind));
+        }
+
+        [DoesNotReturn]
+        public static void ThrowInvalidOperationException_CollectionIsReadOnly()
+        {
+            throw new InvalidOperationException(SR.CollectionIsReadOnly);
         }
 
         [DoesNotReturn]
