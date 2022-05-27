@@ -397,6 +397,7 @@ namespace System.Text.Json.Serialization.Metadata
         /// <param name="type">Type for which JsonTypeInfo stores metadata for</param>
         /// <param name="options">Options associated with JsonTypeInfo</param>
         /// <returns>JsonTypeInfo instance</returns>
+        [RequiresUnreferencedCode("JSON serialization and deserialization might require types that cannot be statically analyzed and might need runtime code generation. Use generic overload or System.Text.Json source generation for native AOT applications.")]
         [RequiresDynamicCode("JSON serialization and deserialization might require types that cannot be statically analyzed and might need runtime code generation. Use generic overload or System.Text.Json source generation for native AOT applications.")]
         public static JsonTypeInfo CreateJsonTypeInfo(Type type, JsonSerializerOptions options)
         {
