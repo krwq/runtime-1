@@ -29,6 +29,7 @@ namespace System.Text.Json.Serialization.Metadata
         [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
         internal DefaultJsonTypeInfoResolver(bool mutable)
         {
+            JsonSerializerOptions.RootConverters();
             Modifiers = new ConfigurationList<Action<JsonTypeInfo>>() { VerifyMutable = VerifyMutable };
             _mutable = mutable;
         }
@@ -36,6 +37,16 @@ namespace System.Text.Json.Serialization.Metadata
         /// <inheritdoc/>
         public virtual JsonTypeInfo GetTypeInfo(Type type, JsonSerializerOptions options)
         {
+            if (type == null)
+            {
+                throw new ArgumentNullException(nameof(type));
+            }
+
+            if (options == null)
+            {
+                throw new ArgumentNullException(nameof(options));
+            }
+
             _mutable = false;
 
             JsonTypeInfo.ValidateType(type, null, null, options);

@@ -32,22 +32,32 @@ namespace System.Text.Json
         [MemberNotNull(nameof(s_defaultTypeInfoResolver))]
         private static void RootReflectionSerializerDependencies()
         {
-            // s_typeInfoCreationFunc is the last field assigned.
-            // Use it as the sentinel to ensure that all dependencies are initialized.
-            if (Volatile.Read(ref s_defaultTypeInfoResolver) is null)
-            {
-                s_defaultSimpleConverters = GetDefaultSimpleConverters();
-                s_defaultFactoryConverters = GetDefaultFactoryConverters();
-                // Explicitly ensure that the previous fields are initialized along with this one.
-                // We also need to ensure that all threads use same instance of s_defaultTypeInfoResolver or
-                // otherwise EqualityComparer for CachingContext may fail even though
-                // two options might assign _typeInfoResolver to s_defaultTypeInfoResolver
-                Interlocked.CompareExchange(ref s_defaultTypeInfoResolver, new DefaultJsonTypeInfoResolver(mutable: false), null);
-            }
+            // We need to ensure that all threads use same instance of s_defaultTypeInfoResolver or
+            // otherwise EqualityComparer for CachingContext may fail even though
+            // two options might assign _typeInfoResolver to s_defaultTypeInfoResolver
+            Interlocked.CompareExchange(ref s_defaultTypeInfoResolver, new DefaultJsonTypeInfoResolver(mutable: false), null);
 
-            // This isn't strictly needed but we will get nullability warning because `Volatile.Read(ref s_defaultTypeInfoResolver) is null`
-            // is not recognized by compiler as a null check
-            Debug.Assert(s_defaultTypeInfoResolver != null);
+            // constructor for DefaultJsonTypeInfoResolver calls RootConverters()
+            // and therefore both fields are initialized now
+            Debug.Assert(s_defaultSimpleConverters != null);
+            Debug.Assert(s_defaultFactoryConverters != null);
+        }
+
+        [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]
+        [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
+        // This method should be called only within DefaultJsonTypeInfoResolver constructor
+        // We need to do this in case DefaultJsonTypeInfoResolver is called standalone without
+        // serialization happening first
+        internal static void RootConverters()
+        {
+            // s_defaultFactoryConverters is the last field assigned.
+            // Use it as the sentinel to ensure that all dependencies are initialized.
+            if (Volatile.Read(ref s_defaultFactoryConverters) is null)
+            {
+                // Explicitly ensure that the previous fields are initialized along with this one.
+                s_defaultSimpleConverters = GetDefaultSimpleConverters();
+                Volatile.Write(ref s_defaultFactoryConverters, GetDefaultFactoryConverters());
+            }
         }
 
         [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]

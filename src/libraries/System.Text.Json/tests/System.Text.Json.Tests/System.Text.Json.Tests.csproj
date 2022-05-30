@@ -170,6 +170,7 @@
     <Compile Include="Serialization\JsonPolymorphicTypeConfigurationTests.cs" />
     <Compile Include="Serialization\JsonSerializerApiValidation.cs" />
     <Compile Include="Serialization\JsonSerializerWrapper.Reflection.cs" />
+    <Compile Include="Serialization\MetadataTests\DefaultJsonTypeInfoResolverTests.cs" />
     <Compile Include="Serialization\MetadataTests\MetadataTests.cs" />
     <Compile Include="Serialization\MetadataTests\MetadataTests.JsonSerializer.cs" />
     <Compile Include="Serialization\MetadataTests\MetadataTests.Options.cs" />
