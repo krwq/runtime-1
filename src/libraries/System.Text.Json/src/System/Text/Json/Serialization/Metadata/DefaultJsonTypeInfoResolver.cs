@@ -1,11 +1,11 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using System.Threading;
 
 namespace System.Text.Json.Serialization.Metadata
 {
@@ -27,15 +27,11 @@ namespace System.Text.Json.Serialization.Metadata
 
         [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]
         [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
-        internal DefaultJsonTypeInfoResolver(bool mutable)
+        private DefaultJsonTypeInfoResolver(bool mutable)
         {
             JsonSerializerOptions.RootConverters();
-            Modifiers = new ConfigurationList<Action<JsonTypeInfo>>()
-            {
-                IsReadOnlyFunc = IsReadOnly,
-                ThrowImmutableFunc = ThrowTypeInfoResolverImmutable,
-            };
             _mutable = mutable;
+            Modifiers = new ModifierCollection(this);
         }
 
         /// <inheritdoc/>
@@ -94,11 +90,42 @@ namespace System.Text.Json.Serialization.Metadata
         /// </summary>
         public IList<Action<JsonTypeInfo>> Modifiers { get; }
 
-        private bool IsReadOnly() => !_mutable;
-
-        private static void ThrowTypeInfoResolverImmutable()
+        private sealed class ModifierCollection : ConfigurationList<Action<JsonTypeInfo>>
         {
-            ThrowHelper.ThrowInvalidOperationException_TypeInfoResolverImmutable();
+            private readonly DefaultJsonTypeInfoResolver _resolver;
+
+            public ModifierCollection(DefaultJsonTypeInfoResolver resolver)
+            {
+                _resolver = resolver;
+            }
+
+            protected override bool IsLockedInstance => !_resolver._mutable;
+            protected override void VerifyMutable()
+            {
+                if (!_resolver._mutable)
+                {
+                    ThrowHelper.ThrowInvalidOperationException_TypeInfoResolverImmutable();
+                }
+            }
         }
+
+        internal static DefaultJsonTypeInfoResolver DefaultInstance
+        {
+            [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]
+            [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
+            get
+            {
+                if (s_defaultInstance is DefaultJsonTypeInfoResolver resolver)
+                {
+                    return resolver;
+                }
+
+                var newInstance = new DefaultJsonTypeInfoResolver(mutable: false);
+                DefaultJsonTypeInfoResolver? originalInstance = Interlocked.CompareExchange(ref s_defaultInstance, newInstance, comparand: null);
+                return originalInstance ?? newInstance;
+            }
+        }
+
+        private static DefaultJsonTypeInfoResolver? s_defaultInstance;
     }
 }

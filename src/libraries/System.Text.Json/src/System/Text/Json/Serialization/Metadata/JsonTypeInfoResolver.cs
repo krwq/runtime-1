@@ -29,16 +29,16 @@ namespace System.Text.Json.Serialization.Metadata
 
         private sealed class CombiningJsonTypeInfoResolver : IJsonTypeInfoResolver
         {
-            private IJsonTypeInfoResolver[] _resolvers;
+            private readonly IJsonTypeInfoResolver[] _resolvers;
 
             public CombiningJsonTypeInfoResolver(IJsonTypeInfoResolver[] resolvers)
             {
-                _resolvers = resolvers;
+                _resolvers = resolvers.AsSpan().ToArray();
             }
 
             public JsonTypeInfo? GetTypeInfo(Type type, JsonSerializerOptions options)
             {
-                foreach (var resolver in _resolvers)
+                foreach (IJsonTypeInfoResolver resolver in _resolvers)
                 {
                     JsonTypeInfo? typeInfo = resolver.GetTypeInfo(type, options);
                     if (typeInfo != null)

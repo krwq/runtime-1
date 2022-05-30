@@ -171,7 +171,7 @@ namespace System.Text.Json.Serialization.Tests
         }
 
         [Fact]
-        public static void TypeInfoResolverCanBeSetAfterContextIsSetThroughTypeInfoResolver()
+        public static void TypeInfoResolverCannotBeSetAfterContextIsSetThroughTypeInfoResolver()
         {
             var options = new JsonSerializerOptions();
             IJsonTypeInfoResolver resolver = new JsonContext();
@@ -179,8 +179,7 @@ namespace System.Text.Json.Serialization.Tests
             Assert.Same(resolver, options.TypeInfoResolver);
 
             resolver = new DefaultJsonTypeInfoResolver();
-            options.TypeInfoResolver = resolver;
-            Assert.Same(resolver, options.TypeInfoResolver);
+            Assert.Throws<InvalidOperationException>(() => options.TypeInfoResolver = resolver);
         }
 
         [Fact]

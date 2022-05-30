@@ -24,30 +24,8 @@ namespace System.Text.Json
         // The global list of built-in converters that override CanConvert().
         private static JsonConverter[]? s_defaultFactoryConverters;
 
-        // Stores the JsonTypeInfo factory, which requires unreferenced code and must be rooted by the reflection-based serializer.
-        private static IJsonTypeInfoResolver? s_defaultTypeInfoResolver;
-
         [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]
         [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
-        [MemberNotNull(nameof(s_defaultTypeInfoResolver))]
-        private static void RootReflectionSerializerDependencies()
-        {
-            // We need to ensure that all threads use same instance of s_defaultTypeInfoResolver or
-            // otherwise EqualityComparer for CachingContext may fail even though
-            // two options might assign _typeInfoResolver to s_defaultTypeInfoResolver
-            Interlocked.CompareExchange(ref s_defaultTypeInfoResolver, new DefaultJsonTypeInfoResolver(mutable: false), null);
-
-            // constructor for DefaultJsonTypeInfoResolver calls RootConverters()
-            // and therefore both fields are initialized now
-            Debug.Assert(s_defaultSimpleConverters != null);
-            Debug.Assert(s_defaultFactoryConverters != null);
-        }
-
-        [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]
-        [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
-        // This method should be called only within DefaultJsonTypeInfoResolver constructor
-        // We need to do this in case DefaultJsonTypeInfoResolver is called standalone without
-        // serialization happening first
         internal static void RootConverters()
         {
             // s_defaultFactoryConverters is the last field assigned.
@@ -236,7 +214,7 @@ namespace System.Text.Json
                 ThrowHelper.ThrowArgumentNullException(nameof(typeToConvert));
             }
 
-            RootReflectionSerializerDependencies();
+            RootConverters();
             return GetConverterInternal(typeToConvert);
         }
 
@@ -256,7 +234,7 @@ namespace System.Text.Json
             Debug.Assert(typeToConvert != null);
 
             // Priority 1: If there is a JsonSerializerContext, fetch the converter from there.
-            JsonConverter? converter = _serializerContext?.GetTypeInfo(typeToConvert)?.Converter;
+            JsonConverter? converter = SerializerContext?.GetTypeInfo(typeToConvert)?.Converter;
 
             // Priority 2: Attempt to get custom converter added at runtime.
             // Currently there is not a way at runtime to override the [JsonConverter] when applied to a property.
@@ -386,9 +364,9 @@ namespace System.Text.Json
 
         internal bool TryGetDefaultSimpleConverter(Type typeToConvert, [NotNullWhen(true)] out JsonConverter? converter)
         {
-            if (_serializerContext == null && // For consistency do not return any default converters for
-                                    // options instances linked to a JsonSerializerContext,
-                                    // even if the default converters might have been rooted.
+            if (SerializerContext is null && // For consistency do not return any default converters for
+                                             // options instances linked to a JsonSerializerContext,
+                                             // even if the default converters might have been rooted.
                 s_defaultSimpleConverters != null &&
                 s_defaultSimpleConverters.TryGetValue(typeToConvert, out converter))
             {

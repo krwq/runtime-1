@@ -49,6 +49,7 @@ namespace System.Text.Json.Serialization.Metadata
         /// <see cref="JsonSourceGenerationOptionsAttribute"/> values specified at design time.
         /// </summary>
         /// <remarks>The writer is not flushed after writing.</remarks>
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public Action<Utf8JsonWriter, T>? SerializeHandler
         {
             get
