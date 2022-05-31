@@ -4,29 +4,25 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace System.Text.Json.Serialization
 {
     /// <summary>
-    /// A list of configuration items that respects the options class being immutable once (de)serialization occurs.
+    /// A list of configuration items that can be locked for modification
     /// </summary>
-    internal sealed class ConfigurationList<TItem> : IList<TItem>
+    internal abstract class ConfigurationList<TItem> : IList<TItem>
     {
         private readonly List<TItem> _list;
 
-        public Action<TItem>? OnElementAdded { get; set; }
-        public Func<bool>? IsReadOnlyFunc { get; set; }
-        public Action? ThrowImmutableFunc { get; set; }
-
-        public ConfigurationList()
+        public ConfigurationList(IList<TItem>? source = null)
         {
-            _list = new List<TItem>();
+            _list = source is null ? new List<TItem>() : new List<TItem>(source);
         }
 
-        public ConfigurationList(IList<TItem> source)
-        {
-            _list = new List<TItem>(source is ConfigurationList<TItem> cl ? cl._list : source);
-        }
+        protected abstract bool IsLockedInstance { get; }
+        protected abstract void VerifyMutable();
+        protected virtual void OnItemAdded(TItem item) { }
 
         public TItem this[int index]
         {
@@ -43,24 +39,13 @@ namespace System.Text.Json.Serialization
 
                 VerifyMutable();
                 _list[index] = value;
-                OnElementAdded?.Invoke(value);
+                OnItemAdded(value);
             }
         }
 
         public int Count => _list.Count;
 
-        public bool IsReadOnly => IsReadOnlyFunc != null ? IsReadOnlyFunc() : false;
-
-        private void VerifyMutable()
-        {
-            Debug.Assert((IsReadOnlyFunc == null) == (ThrowImmutableFunc == null), "IsReadOnlyFunc and ThrowImmutableFunc should be either both set or both unset");
-
-            if (IsReadOnlyFunc != null && IsReadOnlyFunc())
-            {
-                Debug.Assert(ThrowImmutableFunc != null);
-                ThrowImmutableFunc();
-            }
-        }
+        public bool IsReadOnly => IsLockedInstance;
 
         public void Add(TItem item)
         {
@@ -71,7 +56,7 @@ namespace System.Text.Json.Serialization
 
             VerifyMutable();
             _list.Add(item);
-            OnElementAdded?.Invoke(item);
+            OnItemAdded(item);
         }
 
         public void Clear()
@@ -109,7 +94,7 @@ namespace System.Text.Json.Serialization
 
             VerifyMutable();
             _list.Insert(index, item);
-            OnElementAdded?.Invoke(item);
+            OnItemAdded(item);
         }
 
         public bool Remove(TItem item)

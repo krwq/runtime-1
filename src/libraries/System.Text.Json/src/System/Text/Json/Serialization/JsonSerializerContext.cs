@@ -20,12 +20,9 @@ namespace System.Text.Json.Serialization
         /// when instanciating the context, then a new instance is bound and returned.
         /// </summary>
         /// <remarks>
-        /// The instance cannot be mutated once it is bound with the context instance.
+        /// The instance cannot be mutated once it is bound to the context instance.
         /// </remarks>
-        public JsonSerializerOptions Options => _options ??= new JsonSerializerOptions { JsonSerializerContext = this };
-
-        // Currently JsonSerializerContext starts falling back to DefaultJsonTypeInfoResolver when some methods are called.
-        internal IJsonTypeInfoResolver? FallbackResolver { get; set; }
+        public JsonSerializerOptions Options => _options ??= new JsonSerializerOptions { TypeInfoResolver = this };
 
         /// <summary>
         /// Indicates whether pre-generated serialization logic for types in the context
@@ -87,8 +84,7 @@ namespace System.Text.Json.Serialization
         {
             if (options != null)
             {
-                options.JsonSerializerContext = this;
-                _options = options;
+                options.TypeInfoResolver = this;
             }
         }
 
@@ -101,15 +97,13 @@ namespace System.Text.Json.Serialization
 
         JsonTypeInfo? IJsonTypeInfoResolver.GetTypeInfo(Type type, JsonSerializerOptions options)
         {
-            if (_options != options)
+            if (options != null && _options != options)
             {
-                Debug.Assert(_options != null, "_options are null");
+                // TODO is this the appropriate exception message to throw?
                 ThrowHelper.ThrowInvalidOperationException_SerializerContextOptionsImmutable();
             }
 
-            JsonTypeInfo? typeInfo = GetTypeInfo(type);
-            typeInfo ??= FallbackResolver?.GetTypeInfo(type, options);
-            return typeInfo;
+            return GetTypeInfo(type);
         }
     }
 }

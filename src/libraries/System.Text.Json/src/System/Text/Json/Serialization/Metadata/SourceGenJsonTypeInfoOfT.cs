@@ -99,7 +99,7 @@ namespace System.Text.Json.Serialization.Metadata
 
         internal override JsonParameterInfoValues[] GetParameterInfoValues()
         {
-            JsonSerializerContext? context = Options.JsonSerializerContext;
+            JsonSerializerContext? context = Options.SerializerContext;
             JsonParameterInfoValues[] array;
             if (context == null || CtorParamInitFunc == null || (array = CtorParamInitFunc()) == null)
             {
@@ -117,7 +117,7 @@ namespace System.Text.Json.Serialization.Metadata
                 return;
             }
 
-            JsonSerializerContext? context = Options.JsonSerializerContext;
+            JsonSerializerContext? context = Options.SerializerContext;
             JsonPropertyInfo[] array;
             if (context == null || PropInitFunc == null || (array = PropInitFunc(context)) == null)
             {
@@ -132,7 +132,7 @@ namespace System.Text.Json.Serialization.Metadata
                     return;
                 }
 
-                if (SerializeHandler != null && Options.JsonSerializerContext?.CanUseSerializationLogic == true)
+                if (SerializeHandler != null && Options.SerializerContext?.CanUseSerializationLogic == true)
                 {
                     ThrowOnDeserialize = true;
                     return;

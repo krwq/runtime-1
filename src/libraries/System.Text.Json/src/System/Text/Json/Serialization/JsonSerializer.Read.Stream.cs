@@ -369,7 +369,10 @@ namespace System.Text.Json
             }
 
             options ??= JsonSerializerOptions.Default;
-            options.EnsureInitializedForReflectionSerializer();
+            if (!options.IsInitializedForReflectionSerializer)
+            {
+                options.InitializeForReflectionSerializer();
+            }
 
             JsonTypeInfo jsonTypeInfo = options.GetOrAddJsonTypeInfoForRootType(typeof(TValue));
             return CreateAsyncEnumerableDeserializer<TValue>(utf8Json, jsonTypeInfo, cancellationToken);
