@@ -30,7 +30,7 @@ namespace System.Text.Json.Serialization.Metadata
 
         private protected override void SetCreateObject(Delegate? createObject)
         {
-            Debug.Assert(createObject is null || createObject is Func<object> || createObject is Func<T>);
+            Debug.Assert(createObject is null or Func<object> or Func<T>);
 
             if (createObject is null)
             {
