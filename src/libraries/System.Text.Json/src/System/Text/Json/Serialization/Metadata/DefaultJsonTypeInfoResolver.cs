@@ -30,7 +30,11 @@ namespace System.Text.Json.Serialization.Metadata
         internal DefaultJsonTypeInfoResolver(bool mutable)
         {
             JsonSerializerOptions.RootConverters();
-            Modifiers = new ConfigurationList<Action<JsonTypeInfo>>() { VerifyMutable = VerifyMutable };
+            Modifiers = new ConfigurationList<Action<JsonTypeInfo>>()
+            {
+                IsReadOnlyFunc = IsReadOnly,
+                ThrowImmutableFunc = ThrowTypeInfoResolverImmutable,
+            };
             _mutable = mutable;
         }
 
@@ -90,12 +94,11 @@ namespace System.Text.Json.Serialization.Metadata
         /// </summary>
         public IList<Action<JsonTypeInfo>> Modifiers { get; }
 
-        private void VerifyMutable()
+        private bool IsReadOnly() => !_mutable;
+
+        private static void ThrowTypeInfoResolverImmutable()
         {
-            if (!_mutable)
-            {
-                ThrowHelper.ThrowInvalidOperationException_TypeInfoResolverImmutable();
-            }
+            ThrowHelper.ThrowInvalidOperationException_TypeInfoResolverImmutable();
         }
     }
 }

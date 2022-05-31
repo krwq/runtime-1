@@ -103,7 +103,7 @@ namespace System.Text.Json.Serialization.Tests
 
             Assert.NotNull(r.GetTypeInfo(typeof(string), new JsonSerializerOptions()));
 
-            Assert.False(mods.IsReadOnly); // TODO: BUG
+            Assert.True(mods.IsReadOnly);
             Assert.Same(mods, r.Modifiers);
             Assert.Equal(0, mods.Count);
 
@@ -123,7 +123,7 @@ namespace System.Text.Json.Serialization.Tests
 
             Assert.NotNull(r.GetTypeInfo(typeof(string), new JsonSerializerOptions()));
 
-            Assert.False(mods.IsReadOnly); // TODO: BUG
+            Assert.True(mods.IsReadOnly);
             Assert.Same(mods, r.Modifiers);
             Assert.Equal(2, mods.Count);
 

@@ -15,7 +15,8 @@ namespace System.Text.Json.Serialization
         private readonly List<TItem> _list;
 
         public Action<TItem>? OnElementAdded { get; set; }
-        public Action? VerifyMutable { get; set; }
+        public Func<bool>? IsReadOnlyFunc { get; set; }
+        public Action? ThrowImmutableFunc { get; set; }
 
         public ConfigurationList()
         {
@@ -40,7 +41,7 @@ namespace System.Text.Json.Serialization
                     throw new ArgumentNullException(nameof(value));
                 }
 
-                VerifyMutable?.Invoke();
+                VerifyMutable();
                 _list[index] = value;
                 OnElementAdded?.Invoke(value);
             }
@@ -48,7 +49,18 @@ namespace System.Text.Json.Serialization
 
         public int Count => _list.Count;
 
-        public bool IsReadOnly => false;
+        public bool IsReadOnly => IsReadOnlyFunc != null ? IsReadOnlyFunc() : false;
+
+        private void VerifyMutable()
+        {
+            Debug.Assert((IsReadOnlyFunc == null) == (ThrowImmutableFunc == null), "IsReadOnlyFunc and ThrowImmutableFunc should be either both set or both unset");
+
+            if (IsReadOnlyFunc != null && IsReadOnlyFunc())
+            {
+                Debug.Assert(ThrowImmutableFunc != null);
+                ThrowImmutableFunc();
+            }
+        }
 
         public void Add(TItem item)
         {
@@ -57,14 +69,14 @@ namespace System.Text.Json.Serialization
                 ThrowHelper.ThrowArgumentNullException(nameof(item));
             }
 
-            VerifyMutable?.Invoke();
+            VerifyMutable();
             _list.Add(item);
             OnElementAdded?.Invoke(item);
         }
 
         public void Clear()
         {
-            VerifyMutable?.Invoke();
+            VerifyMutable();
             _list.Clear();
         }
 
@@ -95,20 +107,20 @@ namespace System.Text.Json.Serialization
                 ThrowHelper.ThrowArgumentNullException(nameof(item));
             }
 
-            VerifyMutable?.Invoke();
+            VerifyMutable();
             _list.Insert(index, item);
             OnElementAdded?.Invoke(item);
         }
 
         public bool Remove(TItem item)
         {
-            VerifyMutable?.Invoke();
+            VerifyMutable();
             return _list.Remove(item);
         }
 
         public void RemoveAt(int index)
         {
-            VerifyMutable?.Invoke();
+            VerifyMutable();
             _list.RemoveAt(index);
         }
 

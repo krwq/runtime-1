@@ -121,8 +121,7 @@ namespace System.Text.Json.Serialization.Tests
                 Assert.False(list.Equals(onlyElement));
                 Assert.NotNull(list.GetEnumerator());
                 Assert.Equal(0, list.IndexOf(onlyElement));
-                // TODO: this looks like a bug but seems we've already done that for converters
-                Assert.False(list.IsReadOnly, "List should not be read-only");
+                Assert.True(list.IsReadOnly, "List should be read-only");
             }
 
             static void TestIListThrowingOperationsWhenImmutable<T>(IList<T> list, T firstElement)
