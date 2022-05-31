@@ -191,7 +191,6 @@ namespace System.Text.Json
                     if (ctx._options != null && ctx._options != this)
                     {
                         // TODO evaluate if this is the appropriate behaviour;
-                        // users are still able to work around this check by wrapping JsonTypeInfoResolver.Combine(value);
                         ThrowHelper.ThrowInvalidOperationException_SerializerContextOptionsImmutable();
                     }
 
