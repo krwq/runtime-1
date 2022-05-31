@@ -51,7 +51,6 @@ namespace System.Text.Json.Serialization.Metadata
             Func<T> typedDelegate = (Func<T>)createObject;
             _createObject = () => typedDelegate()!;
             _typedCreateObject = typedDelegate;
-
         }
 
         internal JsonTypeInfo(JsonConverter converter, JsonSerializerOptions options)
