@@ -21,23 +21,37 @@ namespace System.Text.Json.Serialization.Metadata
         /// </summary>
         public new Func<T>? CreateObject
         {
-            get => _typedCreateObject ??= UntypedCreateObject == null ? null : () => (T)UntypedCreateObject();
+            get => _typedCreateObject;
             set
             {
-                _typedCreateObject = value;
-                UntypedCreateObject = value == null ? null : () => value()!;
+                SetCreateObject(value);
             }
         }
 
-        internal override Func<object>? UntypedCreateObjectAbstract
+        private protected override void SetCreateObject(Delegate? createObject)
         {
-            get => UntypedCreateObject;
-            set
+            Debug.Assert(createObject is null || createObject is Func<object> || createObject is Func<T>);
+
+            if (createObject is null)
             {
-                UntypedCreateObject = value;
-                // We invalidate the cached typed value
+                _createObject = null;
                 _typedCreateObject = null;
+                return;
             }
+
+            if (createObject is Func<object> untypedDelegate)
+            {
+                _createObject = untypedDelegate;
+                _typedCreateObject = () => (T)untypedDelegate();
+                return;
+            }
+
+            Debug.Assert(createObject is Func<T>);
+
+            Func<T> typedDelegate = (Func<T>)createObject;
+            _createObject = () => typedDelegate()!;
+            _typedCreateObject = typedDelegate;
+
         }
 
         internal JsonTypeInfo(JsonConverter converter, JsonSerializerOptions options)
