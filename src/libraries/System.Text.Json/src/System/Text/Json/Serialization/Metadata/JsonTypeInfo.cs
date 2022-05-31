@@ -28,9 +28,15 @@ namespace System.Text.Json.Serialization.Metadata
         /// </summary>
         public Func<object>? CreateObject
         {
-            get => UntypedCreateObjectAbstract;
-            set => UntypedCreateObjectAbstract = value;
+            get => _createObject;
+            set
+            {
+                SetCreateObject(value);
+            }
         }
+
+        private protected abstract void SetCreateObject(Delegate? createObject);
+        private protected Func<object>? _createObject;
 
         /// <summary>
         /// Gets JsonPropertyInfo list. Only applicable when Kind is Object.
@@ -68,13 +74,6 @@ namespace System.Text.Json.Serialization.Metadata
                 return _properties;
             }
         }
-
-        // Untyped CreateObject is non-virtual public API so we pretend it's virtual by using this indirection
-        // We need it to be abstract so that we can keep typed value in sync
-        internal abstract Func<object>? UntypedCreateObjectAbstract { get; set; }
-
-        // Actual value of UntypedCreateObject, for perf it's non-virtual
-        internal Func<object>? UntypedCreateObject { get; set; }
 
         internal object? CreateObjectWithArgs { get; set; }
 
