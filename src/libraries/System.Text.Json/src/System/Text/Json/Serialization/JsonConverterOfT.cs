@@ -546,7 +546,11 @@ namespace System.Text.Json.Serialization
         /// <remarks>Method should be overridden in custom converters of types used in deserialized dictionary keys.</remarks>
         public virtual T ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            if (!IsInternalConverter && options.TryGetDefaultSimpleConverter(TypeToConvert, out JsonConverter? defaultConverter))
+            if (!IsInternalConverter &&
+                options.SerializerContext is null && // For consistency do not return any default converters for
+                                                     // options instances linked to a JsonSerializerContext,
+                                                     // even if the default converters might have been rooted.
+                DefaultJsonTypeInfoResolver.TryGetDefaultSimpleConverter(TypeToConvert, out JsonConverter? defaultConverter))
             {
                 // .NET 5 backward compatibility: hardcode the default converter for primitive key serialization.
                 Debug.Assert(defaultConverter.IsInternalConverter && defaultConverter is JsonConverter<T>);
@@ -580,7 +584,11 @@ namespace System.Text.Json.Serialization
         /// <remarks>Method should be overridden in custom converters of types used in serialized dictionary keys.</remarks>
         public virtual void WriteAsPropertyName(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
         {
-            if (!IsInternalConverter && options.TryGetDefaultSimpleConverter(TypeToConvert, out JsonConverter? defaultConverter))
+            if (!IsInternalConverter &&
+                options.SerializerContext is null && // For consistency do not return any default converters for
+                                                     // options instances linked to a JsonSerializerContext,
+                                                     // even if the default converters might have been rooted.
+                DefaultJsonTypeInfoResolver.TryGetDefaultSimpleConverter(TypeToConvert, out JsonConverter? defaultConverter))
             {
                 // .NET 5 backward compatibility: hardcode the default converter for primitive key serialization.
                 Debug.Assert(defaultConverter.IsInternalConverter && defaultConverter is JsonConverter<T>);

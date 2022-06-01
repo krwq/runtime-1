@@ -43,9 +43,7 @@ namespace System.Text.Json
         private ReferenceHandler? _referenceHandler;
         private JavaScriptEncoder? _encoder;
         private ConfigurationList<JsonConverter> _converters;
-#pragma warning disable CA2252 // This API requires opting into preview features
         private ConfigurationList<JsonPolymorphicTypeConfiguration> _polymorphicTypeConfigurations;
-#pragma warning restore CA2252 // This API requires opting into preview features
         private JsonIgnoreCondition _defaultIgnoreCondition;
         private JsonNumberHandling _numberHandling;
         private JsonUnknownTypeHandling _unknownTypeHandling;
@@ -175,7 +173,7 @@ namespace System.Text.Json
             [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
             get
             {
-                return _typeInfoResolver ?? DefaultJsonTypeInfoResolver.DefaultInstance;
+                return _typeInfoResolver ?? DefaultJsonTypeInfoResolver.RootDefaultInstance();
             }
             set
             {
@@ -633,17 +631,15 @@ namespace System.Text.Json
         [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
         internal void InitializeForReflectionSerializer()
         {
-            RootConverters();
-
             if (_typeInfoResolver is JsonSerializerContext ctx)
             {
                 // .NET 6 backward compatibility; use fallback to reflection serialization
                 // TODO: Consider removing this behaviour (needs to be filed as a breaking change).
-                _effectiveJsonTypeInfoResolver = JsonTypeInfoResolver.Combine(ctx, DefaultJsonTypeInfoResolver.DefaultInstance);
+                _effectiveJsonTypeInfoResolver = JsonTypeInfoResolver.Combine(ctx, DefaultJsonTypeInfoResolver.RootDefaultInstance());
             }
             else
             {
-                _effectiveJsonTypeInfoResolver = _typeInfoResolver ?? DefaultJsonTypeInfoResolver.DefaultInstance;
+                _typeInfoResolver ??= DefaultJsonTypeInfoResolver.RootDefaultInstance();
             }
 
             if (_cachingContext != null && _cachingContext.Options != this)

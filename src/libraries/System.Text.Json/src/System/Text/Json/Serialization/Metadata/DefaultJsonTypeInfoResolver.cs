@@ -12,7 +12,7 @@ namespace System.Text.Json.Serialization.Metadata
     /// <summary>
     /// Default JsonTypeInfo resolver.
     /// </summary>
-    public class DefaultJsonTypeInfoResolver : IJsonTypeInfoResolver
+    public partial class DefaultJsonTypeInfoResolver : IJsonTypeInfoResolver
     {
         private bool _mutable;
 
@@ -29,9 +29,10 @@ namespace System.Text.Json.Serialization.Metadata
         [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
         private DefaultJsonTypeInfoResolver(bool mutable)
         {
-            JsonSerializerOptions.RootConverters();
             _mutable = mutable;
-            Modifiers = new ModifierCollection(this);
+
+            s_defaultFactoryConverters ??= GetDefaultFactoryConverters();
+            s_defaultSimpleConverters ??= GetDefaultSimpleConverters();
         }
 
         /// <inheritdoc/>
@@ -66,13 +67,13 @@ namespace System.Text.Json.Serialization.Metadata
             Justification = "The ctor is marked RequiresDynamicCode.")]
         private JsonTypeInfo CreateJsonTypeInfo(Type type, JsonSerializerOptions options)
         {
-            MethodInfo methodInfo = typeof(JsonSerializerOptions).GetMethod(nameof(JsonSerializerOptions.CreateReflectionJsonTypeInfo), BindingFlags.NonPublic | BindingFlags.Instance)!;
+            MethodInfo methodInfo = typeof(DefaultJsonTypeInfoResolver).GetMethod(nameof(CreateReflectionJsonTypeInfo), BindingFlags.NonPublic | BindingFlags.Static)!;
 #if NETCOREAPP
-            return (JsonTypeInfo)methodInfo.MakeGenericMethod(type).Invoke(options, BindingFlags.NonPublic | BindingFlags.DoNotWrapExceptions, null, null, null)!;
+            return (JsonTypeInfo)methodInfo.MakeGenericMethod(type).Invoke(null, BindingFlags.NonPublic | BindingFlags.DoNotWrapExceptions, null, new[] { options }, null)!;
 #else
             try
             {
-                return (JsonTypeInfo)methodInfo.MakeGenericMethod(type).Invoke(options, null)!;
+                return (JsonTypeInfo)methodInfo.MakeGenericMethod(type).Invoke(null, new[] { options })!;
             }
             catch (TargetInvocationException ex)
             {
@@ -84,11 +85,16 @@ namespace System.Text.Json.Serialization.Metadata
 #endif
         }
 
+        [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]
+        [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
+        private static JsonTypeInfo<T> CreateReflectionJsonTypeInfo<T>(JsonSerializerOptions options) => new ReflectionJsonTypeInfo<T>(options);
+
         /// <summary>
         /// List of JsonTypeInfo modifiers. Modifying callbacks are called consecutively after initial resolution
         /// and cannot be changed after GetTypeInfo is called.
         /// </summary>
-        public IList<Action<JsonTypeInfo>> Modifiers { get; }
+        public IList<Action<JsonTypeInfo>> Modifiers => _modifiers ??= new ModifierCollection(this);
+        private ModifierCollection? _modifiers;
 
         private sealed class ModifierCollection : ConfigurationList<Action<JsonTypeInfo>>
         {
@@ -109,23 +115,21 @@ namespace System.Text.Json.Serialization.Metadata
             }
         }
 
-        internal static DefaultJsonTypeInfoResolver DefaultInstance
-        {
-            [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]
-            [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
-            get
-            {
-                if (s_defaultInstance is DefaultJsonTypeInfoResolver resolver)
-                {
-                    return resolver;
-                }
-
-                var newInstance = new DefaultJsonTypeInfoResolver(mutable: false);
-                DefaultJsonTypeInfoResolver? originalInstance = Interlocked.CompareExchange(ref s_defaultInstance, newInstance, comparand: null);
-                return originalInstance ?? newInstance;
-            }
-        }
-
+        internal static DefaultJsonTypeInfoResolver? DefaultInstance => s_defaultInstance;
         private static DefaultJsonTypeInfoResolver? s_defaultInstance;
+
+        [RequiresUnreferencedCode(JsonSerializer.SerializationUnreferencedCodeMessage)]
+        [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
+        internal static DefaultJsonTypeInfoResolver RootDefaultInstance()
+        {
+            if (s_defaultInstance is DefaultJsonTypeInfoResolver result)
+            {
+                return result;
+            }
+
+            var newInstance = new DefaultJsonTypeInfoResolver(mutable: false);
+            DefaultJsonTypeInfoResolver? originalInstance = Interlocked.CompareExchange(ref s_defaultInstance, newInstance, comparand: null);
+            return originalInstance ?? newInstance;
+        }
     }
 }
