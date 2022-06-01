@@ -34,7 +34,7 @@ namespace System.Text.Json
 
             [MemberNotNullWhen(false, nameof(_getKey))]
             [MemberNotNullWhen(false, nameof(_items))]
-            public bool IsReadOnly { get; private set; }
+            public bool IsReadOnly => _getKey == null;
             public int Count => IsReadOnly ? _parent.Count : _items.Count;
 
             public T this[int index]
@@ -55,7 +55,7 @@ namespace System.Text.Json
                 _parent = jsonObject;
                 _getKey = getKey;
 
-                Debug.Assert(!_parent.IsReadOnly || _getKey == null, $"{nameof(JsonPropertyDictionary<T>)} is read-only but editable value list is created");
+                Debug.Assert(!_parent.IsReadOnly, $"{nameof(JsonPropertyDictionary<T>)} is read-only but editable value list is created");
 
                 if (!IsReadOnly)
                 {
@@ -82,11 +82,9 @@ namespace System.Text.Json
                     _parent.AddValue(_getKey(item), item);
                 }
 
-                IsReadOnly = true;
-
                 // clearing those so that we don't keep GC from freeing
-                _items = null!;
-                _getKey = null!;
+                _items = null;
+                _getKey = null;
             }
 
             public void Add(T item)

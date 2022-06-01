@@ -33,18 +33,21 @@ namespace System.Text.Json.Serialization.Metadata
         internal ReflectionJsonTypeInfo(JsonConverter converter, JsonSerializerOptions options)
             : base(converter, options)
         {
-            NumberHandling = GetNumberHandlingForType(Type);
+            if (Kind != JsonTypeInfoKind.None)
+            {
+                NumberHandling = GetNumberHandlingForType(Type);
+            }
 
             if (PropertyInfoForTypeInfo.ConverterStrategy == ConverterStrategy.Object)
             {
                 AddPropertiesAndParametersUsingReflection();
             }
 
-            ((JsonTypeInfo)this).CreateObject = Options.MemberAccessorStrategy.CreateConstructor(typeof(T));
+            SetCreateObject(Options.MemberAccessorStrategy.CreateConstructor(typeof(T)), useForExtensionDataProperty: true);
         }
 
         [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
-                Justification = "The ctor is marked as RequiresUnreferencedCode")]
+            Justification = "The ctor is marked as RequiresUnreferencedCode")]
         [UnconditionalSuppressMessage("AotAnalysis", "IL3050:RequiresDynamicCode",
             Justification = "The ctor is marked RequiresDynamicCode.")]
         internal override void Configure()

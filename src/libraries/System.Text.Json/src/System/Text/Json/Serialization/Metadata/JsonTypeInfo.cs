@@ -35,8 +35,11 @@ namespace System.Text.Json.Serialization.Metadata
             }
         }
 
-        private protected abstract void SetCreateObject(Delegate? createObject);
+        private protected abstract void SetCreateObject(Delegate? createObject, bool useForExtensionDataProperty = false);
         private protected Func<object>? _createObject;
+
+        // this is only assigned if Kind == None
+        internal Func<object>? CreateObjectForExtensionDataProperty { get; set; }
 
         /// <summary>
         /// Gets JsonPropertyInfo list. Only applicable when Kind is Object.
@@ -50,18 +53,16 @@ namespace System.Text.Json.Serialization.Metadata
                     return _properties;
                 }
 
-                if (Kind != JsonTypeInfoKind.Object)
+                if (Kind == JsonTypeInfoKind.Object)
                 {
-                    ThrowHelper.ThrowInvalidOperationException_JsonTypeInfoPropertiesNotAccessibleForNonObject(Kind);
+                    // We need to ensure SourceGen had a chance to add properties
+                    LateAddProperties();
                 }
-
-                // We need to ensure SourceGen had a chance to add properties
-                LateAddProperties();
 
                 // We need to initialize if it's not source gen and there is no properties
                 PropertyCache ??= CreatePropertyCache(capacity: 0);
 
-                if (_isConfigured)
+                if (_isConfigured || Kind != JsonTypeInfoKind.Object)
                 {
                     // We do not pass getKey to ensure list is read-only
                     _properties = PropertyCache.CreateValueList(getKey: null);
@@ -205,13 +206,7 @@ namespace System.Text.Json.Serialization.Metadata
         /// <summary>
         /// Determines the kind of contract metadata current JsonTypeInfo instance is customizing
         /// </summary>
-        public JsonTypeInfoKind Kind => Converter.ConverterStrategy switch
-        {
-            ConverterStrategy.Object => JsonTypeInfoKind.Object,
-            ConverterStrategy.Enumerable => JsonTypeInfoKind.Enumerable,
-            ConverterStrategy.Dictionary => JsonTypeInfoKind.Dictionary,
-            _ => JsonTypeInfoKind.None
-        };
+        public JsonTypeInfoKind Kind { get; private set; }
 
         /// <summary>
         /// The JsonPropertyInfo for this JsonTypeInfo. It is used to obtain the converter for the TypeInfo.
@@ -238,9 +233,22 @@ namespace System.Text.Json.Serialization.Metadata
         private DefaultValueHolder? _defaultValueHolder;
 
         /// <summary>
-        /// Type specific value overriding JsonSerializerOptions NumberHandling. For DefaultJsonTypeInfoResolver it will have JsonNumberHandlingAttribute value.
+        /// Type specific value overriding JsonSerializerOptions NumberHandling. For DefaultJsonTypeInfoResolver it is equivalent to JsonNumberHandlingAttribute value.
         /// </summary>
-        public JsonNumberHandling? NumberHandling { get; set; }
+        public JsonNumberHandling? NumberHandling
+        {
+            get => _numberHandling;
+            set
+            {
+                if (Kind == JsonTypeInfoKind.None)
+                {
+                    ThrowHelper.ThrowInvalidOperationException_JsonTypeInfoOperationNotPossibleForKindNone();
+                }
+
+                _numberHandling = value;
+            }
+        }
+        private JsonNumberHandling? _numberHandling;
 
         internal JsonTypeInfo(Type type, JsonConverter converter, JsonSerializerOptions options)
         {
@@ -270,6 +278,8 @@ namespace System.Text.Json.Serialization.Metadata
                     Debug.Fail($"Unexpected class type: {PropertyInfoForTypeInfo.ConverterStrategy}");
                     throw new InvalidOperationException();
             }
+
+            Kind = GetTypeInfoKind(type, PropertyInfoForTypeInfo.ConverterStrategy);
         }
 
         private volatile bool _isConfigured;
@@ -305,7 +315,12 @@ namespace System.Text.Json.Serialization.Metadata
 
             if (_properties != null)
             {
-                _properties.FinishEditingAndMakeReadOnly();
+                // If user tried to access Properties for something else than JsonTypeInfoKind.Object
+                // Properties will already be read-only
+                if (!_properties.IsReadOnly)
+                {
+                    _properties.FinishEditingAndMakeReadOnly();
+                }
             }
             else
             {
@@ -699,6 +714,23 @@ namespace System.Text.Json.Serialization.Metadata
             jsonParameterInfo.Initialize(parameterInfo, jsonPropertyInfo, options);
 
             return jsonParameterInfo;
+        }
+
+        private static JsonTypeInfoKind GetTypeInfoKind(Type type, ConverterStrategy converterStrategy)
+        {
+            // System.Object is semi-polimorphic and will not respect Properties
+            if (type == typeof(object))
+            {
+                return JsonTypeInfoKind.None;
+            }
+
+            return converterStrategy switch
+            {
+                ConverterStrategy.Object => JsonTypeInfoKind.Object,
+                ConverterStrategy.Enumerable => JsonTypeInfoKind.Enumerable,
+                ConverterStrategy.Dictionary => JsonTypeInfoKind.Dictionary,
+                _ => JsonTypeInfoKind.None
+            };
         }
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]

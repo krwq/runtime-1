@@ -641,7 +641,7 @@
   <data name="Polymorphism_RuntimeTypeDiamondAmbiguity" xml:space="preserve">
     <value>Runtime type '{0}' has a diamond ambiguity between derived types '{1}' and '{2}' of polymorphic type '{3}'. Consider either removing one of the derived types or removing the 'JsonUnknownDerivedTypeHandling.FallBackToNearestAncestor' setting.</value>
   </data>
-  <data name="JsonTypeInfoPropertiesNotAccessibleForNonObject" xml:space="preserve">
-    <value>Properties can only be accessed when Kind is Object but Kind is '{0}'.</value>
+  <data name="JsonTypeInfoOperationNotPossibleForKindNone" xml:space="preserve">
+    <value>Operation is not possible when Kind is JsonTypeKind.None.</value>
   </data>
 </root>

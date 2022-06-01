@@ -34,13 +34,16 @@ namespace System.Text.Json.Serialization.Metadata
             }
             else
             {
-                CreateObject = objectInfo.ObjectCreator;
+                SetCreateObject(objectInfo.ObjectCreator, useForExtensionDataProperty: true);
             }
-
 
             PropInitFunc = objectInfo.PropertyMetadataInitializer;
             SerializeHandler = objectInfo.SerializeHandler;
-            NumberHandling = objectInfo.NumberHandling;
+
+            if (Kind != JsonTypeInfoKind.None)
+            {
+                NumberHandling = objectInfo.NumberHandling;
+            }
         }
 
         /// <summary>
@@ -61,6 +64,7 @@ namespace System.Text.Json.Serialization.Metadata
 
             KeyTypeInfo = collectionInfo.KeyInfo;
             ElementTypeInfo = collectionInfo.ElementInfo ?? throw new ArgumentNullException(nameof(collectionInfo.ElementInfo));
+            Debug.Assert(Kind != JsonTypeInfoKind.None);
             NumberHandling = collectionInfo.NumberHandling;
             SerializeHandler = collectionInfo.SerializeHandler;
             CreateObjectWithArgs = createObjectWithArgs;

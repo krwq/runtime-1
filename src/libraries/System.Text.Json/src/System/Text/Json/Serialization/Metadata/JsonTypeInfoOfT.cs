@@ -28,29 +28,50 @@ namespace System.Text.Json.Serialization.Metadata
             }
         }
 
-        private protected override void SetCreateObject(Delegate? createObject)
+        private protected override void SetCreateObject(Delegate? createObject, bool useForExtensionDataProperty = false)
         {
             Debug.Assert(createObject is null or Func<object> or Func<T>);
 
+            Func<object>? untypedCreateObject;
+            Func<T>? typedCreateObject;
+
             if (createObject is null)
             {
-                _createObject = null;
-                _typedCreateObject = null;
-                return;
+                untypedCreateObject = null;
+                typedCreateObject = null;
             }
-
-            if (createObject is Func<object> untypedDelegate)
+            else if (createObject is Func<object> untypedDelegate)
             {
-                _createObject = untypedDelegate;
-                _typedCreateObject = () => (T)untypedDelegate();
-                return;
+                untypedCreateObject = untypedDelegate;
+                typedCreateObject = () => (T)untypedDelegate();
+            }
+            else
+            {
+                Debug.Assert(createObject is Func<T>);
+
+                Func<T> typedDelegate = (Func<T>)createObject;
+                untypedCreateObject = () => typedDelegate()!;
+                typedCreateObject = typedDelegate;
             }
 
-            Debug.Assert(createObject is Func<T>);
-
-            Func<T> typedDelegate = (Func<T>)createObject;
-            _createObject = () => typedDelegate()!;
-            _typedCreateObject = typedDelegate;
+            if (Kind != JsonTypeInfoKind.None)
+            {
+                _createObject = untypedCreateObject;
+                _typedCreateObject = typedCreateObject;
+            }
+            else
+            {
+                if (useForExtensionDataProperty)
+                {
+                    CreateObjectForExtensionDataProperty = untypedCreateObject;
+                }
+                else
+                {
+                    Debug.Assert(_createObject == null);
+                    Debug.Assert(_typedCreateObject == null);
+                    ThrowHelper.ThrowInvalidOperationException_JsonTypeInfoOperationNotPossibleForKindNone();
+                }
+            }
         }
 
         internal JsonTypeInfo(JsonConverter converter, JsonSerializerOptions options)

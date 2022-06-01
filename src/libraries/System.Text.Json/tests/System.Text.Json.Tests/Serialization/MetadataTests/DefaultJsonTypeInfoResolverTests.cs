@@ -10,7 +10,7 @@ using Xunit;
 
 namespace System.Text.Json.Serialization.Tests
 {
-    public static class DefaultJsonTypeInfoResolverTests
+    public static partial class DefaultJsonTypeInfoResolverTests
     {
         [Fact]
         public static void GetTypeInfoNullArguments()

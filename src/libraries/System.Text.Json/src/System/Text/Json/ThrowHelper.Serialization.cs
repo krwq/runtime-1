@@ -252,9 +252,9 @@ namespace System.Text.Json
         }
 
         [DoesNotReturn]
-        public static void ThrowInvalidOperationException_JsonTypeInfoPropertiesNotAccessibleForNonObject(JsonTypeInfoKind actualKind)
+        public static void ThrowInvalidOperationException_JsonTypeInfoOperationNotPossibleForKindNone()
         {
-            throw new InvalidOperationException(SR.Format(SR.JsonTypeInfoPropertiesNotAccessibleForNonObject, actualKind));
+            throw new InvalidOperationException(SR.JsonTypeInfoOperationNotPossibleForKindNone);
         }
 
         [DoesNotReturn]
