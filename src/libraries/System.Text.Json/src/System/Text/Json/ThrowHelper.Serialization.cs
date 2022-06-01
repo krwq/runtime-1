@@ -105,6 +105,12 @@ namespace System.Text.Json
         }
 
         [DoesNotReturn]
+        public static void ThrowInvalidOperationException_ResolverTypeNotCompatible(Type requestedType, Type actualType)
+        {
+            throw new InvalidOperationException(SR.Format(SR.ResolverTypeNotCompatible, requestedType, actualType));
+        }
+
+        [DoesNotReturn]
         public static void ThrowInvalidOperationException_SerializationConverterOnAttributeInvalid(Type classType, MemberInfo? memberInfo)
         {
             string location = classType.ToString();

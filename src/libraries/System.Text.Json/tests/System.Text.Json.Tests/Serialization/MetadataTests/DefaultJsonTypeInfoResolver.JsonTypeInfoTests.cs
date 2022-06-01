@@ -12,7 +12,7 @@ namespace System.Text.Json.Serialization.Tests
 {
     public static partial class DefaultJsonTypeInfoResolverTests
     {
-        // TODO: mismatching properties from different type info
+        // TODO: type info assigned to different options
         // something similar to ThrowHelper.ThrowInvalidOperationException_SerializationConverterNotCompatible(converter.GetType(), typeToConvert);
 
         [Theory]
@@ -45,6 +45,65 @@ namespace System.Text.Json.Serialization.Tests
             Assert.Throws<InvalidOperationException>(() => ti.Properties.Clear());
         }
 
+        [Theory]
+        [InlineData(typeof(SomeClass), typeof(object))]
+        [InlineData(typeof(object), typeof(string))]
+        [InlineData(typeof(object), typeof(int))]
+        [InlineData(typeof(string), typeof(int))]
+        //[InlineData(typeof(int), typeof(string))] // TODO: GetTypeInfo(typeof(int), ...) is never called
+        //[InlineData(typeof(int), typeof(double))]
+        public static void TypeInfoOfWrongTypeOnObject(Type expectedType, Type actualType)
+        {
+            DefaultJsonTypeInfoResolver dr = new();
+            TestResolver r = new((type, options) =>
+            {
+                if (type == expectedType)
+                {
+                    return dr.GetTypeInfo(actualType, options);
+                }
+
+                return dr.GetTypeInfo(type, options);
+            });
+
+            JsonSerializerOptions o = new();
+            o.TypeInfoResolver = r;
+
+            SomeClass testObj = new()
+            {
+                ObjProp = "test",
+            };
+
+            Assert.Throws<InvalidOperationException>(() => JsonSerializer.Serialize(testObj, o));
+        }
+
+        [Theory]
+        [InlineData(typeof(SomeClass), typeof(object))]
+        [InlineData(typeof(object), typeof(string))]
+        [InlineData(typeof(object), typeof(int))]
+        [InlineData(typeof(int), typeof(string))]
+        [InlineData(typeof(int), typeof(double))]
+        public static void TypeInfoOfWrongTypeDirectCall(Type expectedType, Type actualType)
+        {
+            DefaultJsonTypeInfoResolver dr = new();
+            TestResolver r = new((type, options) =>
+            {
+                if (type == expectedType)
+                {
+                    return dr.GetTypeInfo(actualType, options);
+                }
+
+                return dr.GetTypeInfo(type, options);
+            });
+
+            JsonSerializerOptions o = new();
+            o.TypeInfoResolver = r;
+
+            object testObj = Activator.CreateInstance(expectedType);
+
+            Assert.Throws<InvalidOperationException>(() => JsonSerializer.Serialize(testObj, expectedType, o));
+        }
+
+
         private class SomeClass
         {
             public object ObjProp { get; set; }
@@ -57,7 +116,7 @@ namespace System.Text.Json.Serialization.Tests
             public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options) => throw new NotImplementedException();
         }
 
-        private class TestResolver : DefaultJsonTypeInfoResolver
+        private class TestResolver : IJsonTypeInfoResolver
         {
             private Func<Type, JsonSerializerOptions, JsonTypeInfo> _getTypeInfo;
 
@@ -66,9 +125,9 @@ namespace System.Text.Json.Serialization.Tests
                 _getTypeInfo = getTypeInfo;
             }
 
-            public override JsonTypeInfo GetTypeInfo(Type type, JsonSerializerOptions options)
+            public JsonTypeInfo GetTypeInfo(Type type, JsonSerializerOptions options)
             {
-                return _getTypeInfo(type, options) ?? base.GetTypeInfo(type, options);
+                return _getTypeInfo(type, options);
             }
         }
     }

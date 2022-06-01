@@ -393,6 +393,9 @@
   <data name="SerializationConverterNotCompatible" xml:space="preserve">
     <value>The converter '{0}' is not compatible with the type '{1}'.</value>
   </data>
+  <data name="ResolverTypeNotCompatible" xml:space="preserve">
+    <value>TypeInfoResolver expected to return JsonTypeInfo of type '{0}' but returned JsonTypeInfo of type '{1}'.</value>
+  </data>
   <data name="SerializationConverterWrite" xml:space="preserve">
     <value>The converter '{0}' wrote too much or not enough.</value>
   </data>

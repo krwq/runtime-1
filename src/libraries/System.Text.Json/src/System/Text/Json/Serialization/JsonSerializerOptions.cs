@@ -667,6 +667,11 @@ namespace System.Text.Json
                 return null!;
             }
 
+            if (info.Type != type)
+            {
+                ThrowHelper.ThrowInvalidOperationException_ResolverTypeNotCompatible(type, info.Type);
+            }
+
             info.EnsureConfigured();
             return info;
         }
