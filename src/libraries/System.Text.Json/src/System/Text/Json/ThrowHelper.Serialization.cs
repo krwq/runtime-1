@@ -164,6 +164,18 @@ namespace System.Text.Json
         }
 
         [DoesNotReturn]
+        public static void ThrowInvalidOperationException_TypeInfoImmutable()
+        {
+            throw new InvalidOperationException(SR.TypeInfoImmutable);
+        }
+
+        [DoesNotReturn]
+        public static void ThrowInvalidOperationException_PropertyInfoImmutable()
+        {
+            throw new InvalidOperationException(SR.PropertyInfoImmutable);
+        }
+
+        [DoesNotReturn]
         public static void ThrowInvalidOperationException_SerializerPropertyNameConflict(Type type, JsonPropertyInfo jsonPropertyInfo)
         {
             throw new InvalidOperationException(SR.Format(SR.SerializerPropertyNameConflict, type, jsonPropertyInfo.ClrName));

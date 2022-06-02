@@ -32,6 +32,8 @@ namespace System.Text.Json.Serialization.Metadata
         {
             Debug.Assert(createObject is null or Func<object> or Func<T>);
 
+            CheckMutable();
+
             Func<object>? untypedCreateObject;
             Func<T>? typedCreateObject;
 
@@ -92,6 +94,7 @@ namespace System.Text.Json.Serialization.Metadata
             }
             private protected set
             {
+                CheckMutable();
                 _serialize = value;
                 HasSerialize = value != null;
             }

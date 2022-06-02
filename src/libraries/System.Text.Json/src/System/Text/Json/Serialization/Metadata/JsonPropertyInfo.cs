@@ -36,7 +36,17 @@ namespace System.Text.Json.Serialization.Metadata
         /// <summary>
         /// Custom converter override at the property level, equivalent to JsonConverterAttribute annotation
         /// </summary>
-        public JsonConverter? CustomConverter { get; set; }
+        public JsonConverter? CustomConverter
+        {
+            get => _customConverter;
+            set
+            {
+                CheckMutable();
+                _customConverter = value;
+            }
+        }
+
+        private JsonConverter? _customConverter;
 
         /// <summary>
         /// Getter delegate. Property cannot be serialized without it.
@@ -44,7 +54,11 @@ namespace System.Text.Json.Serialization.Metadata
         public Func<object, object?>? Get
         {
             get => UntypedGetValue;
-            set => UntypedGetValue = value;
+            set
+            {
+                CheckMutable();
+                UntypedGetValue = value;
+            }
         }
 
         /// <summary>
@@ -53,17 +67,31 @@ namespace System.Text.Json.Serialization.Metadata
         public Action<object, object?>? Set
         {
             get => UntypedSetValue;
-            set => UntypedSetValue = value;
+            set
+            {
+                CheckMutable();
+                UntypedSetValue = value;
+            }
         }
 
-        internal abstract Func<object, object?>? UntypedGetValue { get; set; }
-        internal abstract Action<object, object?>? UntypedSetValue { get; set; }
+        private protected abstract Func<object, object?>? UntypedGetValue { get; set; }
+        private protected abstract Action<object, object?>? UntypedSetValue { get; set; }
 
         /// <summary>
         /// Decides if property with given declaring object and property value should be serialized.
         /// If not set it is equivalent to always returning true.
         /// </summary>
-        public Func<object, object?, bool>? ShouldSerialize { get; set; }
+        public Func<object, object?, bool>? ShouldSerialize
+        {
+            get => _shouldSerialize;
+            set
+            {
+                CheckMutable();
+                _shouldSerialize = value;
+            }
+        }
+
+        private Func<object, object?, bool>? _shouldSerialize;
 
         internal JsonPropertyInfo()
         {
@@ -106,7 +134,15 @@ namespace System.Text.Json.Serialization.Metadata
         /// <summary>
         /// Type associated with JsonPropertyInfo
         /// </summary>
-        public Type PropertyType { get; internal set; } = null!;
+        public Type PropertyType { get; private protected set; } = null!;
+
+        private void CheckMutable()
+        {
+            if (_isConfigured)
+            {
+                ThrowHelper.ThrowInvalidOperationException_PropertyInfoImmutable();
+            }
+        }
 
         private bool _isConfigured;
 
@@ -441,7 +477,17 @@ namespace System.Text.Json.Serialization.Metadata
         /// the value specified in JsonPropertyNameAttribute,
         /// or the value returned from PropertyNamingPolicy.
         /// </summary>
-        public string Name { get; set; } = null!;
+        public string Name
+        {
+            get => _name;
+            set
+            {
+                CheckMutable();
+                _name = value;
+            }
+        }
+
+        private string _name = null!;
 
         /// <summary>
         /// Utf8 version of Name.
@@ -611,7 +657,17 @@ namespace System.Text.Json.Serialization.Metadata
         /// <summary>
         /// Number handling specific to this property, i.e. set by attribute
         /// </summary>
-        public JsonNumberHandling? NumberHandling { get; set; }
+        public JsonNumberHandling? NumberHandling
+        {
+            get => _numberHandling;
+            set
+            {
+                CheckMutable();
+                _numberHandling = value;
+            }
+        }
+
+        private JsonNumberHandling? _numberHandling;
 
         /// <summary>
         /// Number handling after considering options and declaring type number handling

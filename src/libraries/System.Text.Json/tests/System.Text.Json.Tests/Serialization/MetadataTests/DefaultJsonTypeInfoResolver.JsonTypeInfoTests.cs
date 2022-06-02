@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization.Metadata;
 using System.Threading.Tasks;
@@ -10,6 +11,7 @@ using Xunit;
 
 namespace System.Text.Json.Serialization.Tests
 {
+    // TODO: typed create object
     public static partial class DefaultJsonTypeInfoResolverTests
     {
         [Theory]
@@ -232,37 +234,86 @@ namespace System.Text.Json.Serialization.Tests
             Assert.Throws<InvalidOperationException>(() => JsonSerializer.Serialize(testObj, expectedType, o));
         }
 
-        private class SomeClass
+        [Theory]
+        [MemberData(nameof(GetTypeInfoTestData))]
+        public static void TypeInfoIsImmutableAfterFirstUsage(Type type, object testObj)
         {
-            public object ObjProp { get; set; }
-            public int IntProp { get; set; }
-        }
-
-        private class CustomThrowingConverter<T> : JsonConverter<T>
-        {
-            public override T? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => throw new NotImplementedException();
-            public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options) => throw new NotImplementedException();
-        }
-
-        private class SomeRecursiveClass
-        {
-            public int IntProp { get; set; }
-            public SomeRecursiveClass RecursiveProperty { get; set; }
-        }
-
-        private class TestResolver : IJsonTypeInfoResolver
-        {
-            private Func<Type, JsonSerializerOptions, JsonTypeInfo> _getTypeInfo;
-
-            public TestResolver(Func<Type, JsonSerializerOptions, JsonTypeInfo> getTypeInfo)
+            JsonTypeInfo typeInfo = null;
+            DefaultJsonTypeInfoResolver dr = new();
+            TestResolver r = new((typeToResolve, options) =>
             {
-                _getTypeInfo = getTypeInfo;
+                var ret = dr.GetTypeInfo(typeToResolve, options);
+                if (typeToResolve == type)
+                {
+                    Assert.Null(typeInfo);
+                    typeInfo = ret;
+                }
+
+                return ret;
+            });
+
+            JsonSerializerOptions o = new();
+            o.TypeInfoResolver = r;
+
+            Assert.NotNull(JsonSerializer.Serialize(testObj, type, o));
+            Assert.NotNull(typeInfo);
+
+            Assert.Equal(type, typeInfo.Type);
+            Assert.True(typeInfo.Converter.CanConvert(type));
+
+            if (typeInfo.Kind == JsonTypeInfoKind.None)
+            {
+                Assert.Null(typeInfo.CreateObject);
+            }
+            else
+            {
+                Assert.NotNull(typeInfo.CreateObject);
             }
 
-            public JsonTypeInfo GetTypeInfo(Type type, JsonSerializerOptions options)
+            Assert.Null(typeInfo.NumberHandling);
+
+            JsonPropertyInfo prop = typeInfo.CreateJsonPropertyInfo(typeof(string), "foo");
+            Assert.Throws<InvalidOperationException>(() => typeInfo.CreateObject = typeInfo.CreateObject);
+            Assert.Throws<InvalidOperationException>(() => typeInfo.NumberHandling = typeInfo.NumberHandling);
+            Assert.Throws<InvalidOperationException>(() => typeInfo.Properties.Clear());
+            Assert.Throws<InvalidOperationException>(() => typeInfo.Properties.Add(prop));
+            Assert.Throws<InvalidOperationException>(() => typeInfo.Properties.Insert(0, prop));
+
+            foreach (var property in typeInfo.Properties)
             {
-                return _getTypeInfo(type, options);
+                Assert.NotNull(property.PropertyType);
+                Assert.Null(property.CustomConverter);
+                Assert.NotNull(property.Name);
+                Assert.NotNull(property.Get);
+                Assert.NotNull(property.Set);
+                Assert.Null(property.ShouldSerialize);
+                Assert.Null(typeInfo.NumberHandling);
+
+                Assert.Throws<InvalidOperationException>(() => property.CustomConverter = property.CustomConverter);
+                Assert.Throws<InvalidOperationException>(() => property.Name = property.Name);
+                Assert.Throws<InvalidOperationException>(() => property.Get = property.Get);
+                Assert.Throws<InvalidOperationException>(() => property.Set = property.Set);
+                Assert.Throws<InvalidOperationException>(() => property.ShouldSerialize = property.ShouldSerialize);
+                Assert.Throws<InvalidOperationException>(() => property.NumberHandling = property.NumberHandling);
             }
+
+            typeof(DefaultJsonTypeInfoResolverTests)
+                .GetMethod(nameof(TypeInfoIsImmutableAfterFirstUsage_Generic), BindingFlags.NonPublic | BindingFlags.Static)
+                .MakeGenericMethod(type)
+                .Invoke(null, new object[] { typeInfo });
+        }
+
+        private static void TypeInfoIsImmutableAfterFirstUsage_Generic<T>(JsonTypeInfo<T> typeInfo)
+        {
+            Assert.Throws<InvalidOperationException>(() => typeInfo.CreateObject = typeInfo.CreateObject);
+        }
+
+        public static IEnumerable<object[]> GetTypeInfoTestData()
+        {
+            yield return new object[] { typeof(string), "test" };
+            yield return new object[] { typeof(int), 13 };
+            yield return new object[] { typeof(SomeClass), new SomeClass { IntProp = 17 } };
+            yield return new object[] { typeof(SomeRecursiveClass), new SomeRecursiveClass() };
         }
     }
 }

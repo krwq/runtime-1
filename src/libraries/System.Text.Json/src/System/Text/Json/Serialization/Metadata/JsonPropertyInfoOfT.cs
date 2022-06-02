@@ -33,11 +33,11 @@ namespace System.Text.Json.Serialization.Metadata
         // We do not need to worry about invalidating _untypedGet/_untypedSet
         // because these are only set during construction
         // If these ever became public we'd need to ensure respective value is set to null here
-        internal Func<object, T>? TypedGetValue { get; set; }
+        private Func<object, T>? TypedGetValue { get; set; }
 
-        internal Action<object, T>? TypedSetValue { get; set; }
+        private Action<object, T>? TypedSetValue { get; set; }
 
-        internal override Func<object, object?>? UntypedGetValue
+        private protected override Func<object, object?>? UntypedGetValue
         {
             get
             {
@@ -53,7 +53,7 @@ namespace System.Text.Json.Serialization.Metadata
             }
         }
 
-        internal override Action<object, object?>? UntypedSetValue
+        private protected override Action<object, object?>? UntypedSetValue
         {
             get
             {

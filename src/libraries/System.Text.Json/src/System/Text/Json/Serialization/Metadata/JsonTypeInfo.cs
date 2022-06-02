@@ -186,7 +186,7 @@ namespace System.Text.Json.Serialization.Metadata
         /// <summary>
         /// Options associated with JsonTypeInfo
         /// </summary>
-        public JsonSerializerOptions Options { get; internal set; }
+        public JsonSerializerOptions Options { get; private set; }
 
         /// <summary>
         /// Type associated with JsonTypeInfo
@@ -235,7 +235,17 @@ namespace System.Text.Json.Serialization.Metadata
         /// <summary>
         /// Type specific value overriding JsonSerializerOptions NumberHandling. For DefaultJsonTypeInfoResolver it is equivalent to JsonNumberHandlingAttribute value.
         /// </summary>
-        public JsonNumberHandling? NumberHandling { get; set; }
+        public JsonNumberHandling? NumberHandling
+        {
+            get => _numberHandling;
+            set
+            {
+                CheckMutable();
+                _numberHandling = value;
+            }
+        }
+
+        private JsonNumberHandling? _numberHandling;
 
         internal JsonTypeInfo(Type type, JsonConverter converter, JsonSerializerOptions options)
         {
@@ -267,6 +277,14 @@ namespace System.Text.Json.Serialization.Metadata
             }
 
             Kind = GetTypeInfoKind(type, PropertyInfoForTypeInfo.ConverterStrategy);
+        }
+
+        private protected void CheckMutable()
+        {
+            if (_isConfigured)
+            {
+                ThrowHelper.ThrowInvalidOperationException_TypeInfoImmutable();
+            }
         }
 
         private volatile bool _isConfigured;

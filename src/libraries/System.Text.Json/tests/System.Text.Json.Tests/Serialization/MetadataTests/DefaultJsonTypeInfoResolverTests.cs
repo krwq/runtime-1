@@ -176,5 +176,38 @@ namespace System.Text.Json.Serialization.Tests
             Assert.True(createObjectCalled);
             Assert.True(secondModifierCalled);
         }
+
+        private class SomeClass
+        {
+            public object ObjProp { get; set; }
+            public int IntProp { get; set; }
+        }
+
+        private class CustomThrowingConverter<T> : JsonConverter<T>
+        {
+            public override T? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => throw new NotImplementedException();
+            public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options) => throw new NotImplementedException();
+        }
+
+        private class SomeRecursiveClass
+        {
+            public int IntProp { get; set; }
+            public SomeRecursiveClass RecursiveProperty { get; set; }
+        }
+
+        private class TestResolver : IJsonTypeInfoResolver
+        {
+            private Func<Type, JsonSerializerOptions, JsonTypeInfo> _getTypeInfo;
+
+            public TestResolver(Func<Type, JsonSerializerOptions, JsonTypeInfo> getTypeInfo)
+            {
+                _getTypeInfo = getTypeInfo;
+            }
+
+            public JsonTypeInfo GetTypeInfo(Type type, JsonSerializerOptions options)
+            {
+                return _getTypeInfo(type, options);
+            }
+        }
     }
 }

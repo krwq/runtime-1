@@ -246,6 +246,12 @@
   <data name="TypeInfoResolverImmutable" xml:space="preserve">
     <value>Default TypeInfoResolver and custom TypeInfoResolver after first usage cannot be changed.</value>
   </data>
+  <data name="TypeInfoImmutable" xml:space="preserve">
+    <value>JsonTypeInfo cannot be changed after first usage.</value>
+  </data>
+  <data name="PropertyInfoImmutable" xml:space="preserve">
+    <value>JsonPropertyInfo cannot be changed after first usage.</value>
+  </data>
   <data name="MaxDepthMustBePositive" xml:space="preserve">
     <value>Max depth must be positive.</value>
   </data>
