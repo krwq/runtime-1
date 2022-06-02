@@ -53,9 +53,12 @@ namespace System.Text.Json.Serialization.Metadata
             JsonTypeInfo.ValidateType(type, null, null, options);
             JsonTypeInfo typeInfo = CreateJsonTypeInfo(type, options);
 
-            foreach (Action<JsonTypeInfo> modifier in Modifiers)
+            if (_modifiers != null)
             {
-                modifier(typeInfo);
+                foreach (Action<JsonTypeInfo> modifier in _modifiers)
+                {
+                    modifier(typeInfo);
+                }
             }
 
             return typeInfo;
