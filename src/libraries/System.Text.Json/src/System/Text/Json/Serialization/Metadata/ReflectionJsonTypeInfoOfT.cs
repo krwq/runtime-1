@@ -33,10 +33,7 @@ namespace System.Text.Json.Serialization.Metadata
         internal ReflectionJsonTypeInfo(JsonConverter converter, JsonSerializerOptions options)
             : base(converter, options)
         {
-            if (Kind != JsonTypeInfoKind.None)
-            {
-                NumberHandling = GetNumberHandlingForType(Type);
-            }
+            NumberHandling = GetNumberHandlingForType(Type);
 
             if (PropertyInfoForTypeInfo.ConverterStrategy == ConverterStrategy.Object)
             {

@@ -326,8 +326,8 @@ namespace System.Text.Json.Serialization.Metadata
 
             if (numberHandlingIsApplicable)
             {
-                // Priority 1: Get handling from attribute on property/field, or its parent class type.
-                JsonNumberHandling? handling = NumberHandling ?? DeclaringTypeNumberHandling;
+                // Priority 1: Get handling from attribute on property/field, it's parent class type or property type.
+                JsonNumberHandling? handling = NumberHandling ?? DeclaringTypeNumberHandling ?? JsonTypeInfo.NumberHandling;
 
                 // Priority 2: Get handling from JsonSerializerOptions instance.
                 if (!handling.HasValue && Options.NumberHandling != JsonNumberHandling.Strict)

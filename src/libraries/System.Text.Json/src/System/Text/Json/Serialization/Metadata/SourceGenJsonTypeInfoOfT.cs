@@ -40,10 +40,7 @@ namespace System.Text.Json.Serialization.Metadata
             PropInitFunc = objectInfo.PropertyMetadataInitializer;
             SerializeHandler = objectInfo.SerializeHandler;
 
-            if (Kind != JsonTypeInfoKind.None)
-            {
-                NumberHandling = objectInfo.NumberHandling;
-            }
+            NumberHandling = objectInfo.NumberHandling;
         }
 
         /// <summary>

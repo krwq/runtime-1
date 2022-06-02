@@ -235,20 +235,7 @@ namespace System.Text.Json.Serialization.Metadata
         /// <summary>
         /// Type specific value overriding JsonSerializerOptions NumberHandling. For DefaultJsonTypeInfoResolver it is equivalent to JsonNumberHandlingAttribute value.
         /// </summary>
-        public JsonNumberHandling? NumberHandling
-        {
-            get => _numberHandling;
-            set
-            {
-                if (Kind == JsonTypeInfoKind.None)
-                {
-                    ThrowHelper.ThrowInvalidOperationException_JsonTypeInfoOperationNotPossibleForKindNone();
-                }
-
-                _numberHandling = value;
-            }
-        }
-        private JsonNumberHandling? _numberHandling;
+        public JsonNumberHandling? NumberHandling { get; set; }
 
         internal JsonTypeInfo(Type type, JsonConverter converter, JsonSerializerOptions options)
         {

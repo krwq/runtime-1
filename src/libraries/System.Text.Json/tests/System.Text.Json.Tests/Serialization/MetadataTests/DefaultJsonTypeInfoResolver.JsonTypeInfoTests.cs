@@ -33,7 +33,6 @@ namespace System.Text.Json.Serialization.Tests
             Assert.Null(ti.CreateObject);
             Assert.Throws<InvalidOperationException>(() => ti.CreateObject = () => Activator.CreateInstance(type));
             Assert.Null(ti.NumberHandling);
-            Assert.Throws<InvalidOperationException>(() => ti.NumberHandling = JsonNumberHandling.AllowReadingFromString);
             Assert.NotNull(ti.Properties);
             Assert.Equal(0, ti.Properties.Count);
             Assert.True(ti.Properties.IsReadOnly);
@@ -45,13 +44,120 @@ namespace System.Text.Json.Serialization.Tests
             Assert.Throws<InvalidOperationException>(() => ti.Properties.Clear());
         }
 
+        [Fact]
+        public static void TypeInfoKindNoneNumberHandlingDirect()
+        {
+            DefaultJsonTypeInfoResolver r = new();
+            r.Modifiers.Add((ti) =>
+            {
+                if (ti.Type == typeof(int))
+                {
+                    ti.NumberHandling = JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString;
+                }
+            });
+
+            JsonSerializerOptions o = new();
+            o.TypeInfoResolver = r;
+
+            string json = JsonSerializer.Serialize(13, o);
+            Assert.Equal(@"""13""", json);
+
+            var deserialized = JsonSerializer.Deserialize<int>(json, o);
+            Assert.Equal(13, deserialized);
+        }
+
+        [Fact]
+        public static void TypeInfoKindNoneNumberHandlingDirectThroughObject()
+        {
+            DefaultJsonTypeInfoResolver r = new();
+            r.Modifiers.Add((ti) =>
+            {
+                if (ti.Type == typeof(int))
+                {
+                    ti.NumberHandling = JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString;
+                }
+            });
+
+            JsonSerializerOptions o = new();
+            o.TypeInfoResolver = r;
+
+            string json = JsonSerializer.Serialize<object>(13, o);
+            Assert.Equal(@"""13""", json);
+
+            var deserialized = JsonSerializer.Deserialize<object>(json, o);
+            Assert.Equal("13", ((JsonElement)deserialized).GetString());
+        }
+
+        [Fact]
+        public static void TypeInfoKindNoneNumberHandling()
+        {
+            DefaultJsonTypeInfoResolver r = new();
+            r.Modifiers.Add((ti) =>
+            {
+                if (ti.Type == typeof(int) || ti.Type == typeof(object))
+                {
+                    ti.NumberHandling = JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString;
+                }
+            });
+
+            JsonSerializerOptions o = new();
+            o.TypeInfoResolver = r;
+
+            SomeClass testObj = new SomeClass()
+            {
+                ObjProp = 45,
+                IntProp = 13,
+            };
+
+            string json = JsonSerializer.Serialize(testObj, o);
+            Assert.Equal(@"{""ObjProp"":""45"",""IntProp"":""13""}", json);
+
+            var deserialized = JsonSerializer.Deserialize<SomeClass>(json, o);
+            Assert.Equal(testObj.ObjProp.ToString(), ((JsonElement)deserialized.ObjProp).GetString());
+            Assert.Equal(testObj.IntProp, deserialized.IntProp);
+        }
+
+        [Fact]
+        public static void RecursiveTypeNumberHandling()
+        {
+            DefaultJsonTypeInfoResolver r = new();
+            r.Modifiers.Add((ti) =>
+            {
+                if (ti.Type == typeof(SomeRecursiveClass))
+                {
+                    ti.NumberHandling = JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString;
+                }
+            });
+
+            JsonSerializerOptions o = new();
+            o.TypeInfoResolver = r;
+
+            SomeRecursiveClass testObj = new SomeRecursiveClass()
+            {
+                IntProp = 13,
+                RecursiveProperty = new SomeRecursiveClass()
+                {
+                    IntProp = 14,
+                },
+            };
+
+            string json = JsonSerializer.Serialize(testObj, o);
+            Assert.Equal(@"{""IntProp"":""13"",""RecursiveProperty"":{""IntProp"":""14"",""RecursiveProperty"":null}}", json);
+
+            var deserialized = JsonSerializer.Deserialize<SomeRecursiveClass>(json, o);
+            Assert.Equal(testObj.IntProp, deserialized.IntProp);
+            Assert.NotNull(testObj.RecursiveProperty);
+            Assert.Equal(testObj.RecursiveProperty.IntProp, deserialized.RecursiveProperty.IntProp);
+            Assert.Null(testObj.RecursiveProperty.RecursiveProperty);
+        }
+
         [Theory]
         [InlineData(typeof(SomeClass), typeof(object))]
         [InlineData(typeof(object), typeof(string))]
         [InlineData(typeof(object), typeof(int))]
         [InlineData(typeof(string), typeof(int))]
-        //[InlineData(typeof(int), typeof(string))] // TODO: GetTypeInfo(typeof(int), ...) is never called
-        //[InlineData(typeof(int), typeof(double))]
+        [InlineData(typeof(int), typeof(string))]
+        [InlineData(typeof(int), typeof(double))]
         public static void TypeInfoOfWrongTypeOnObject(Type expectedType, Type actualType)
         {
             DefaultJsonTypeInfoResolver dr = new();
@@ -114,6 +220,12 @@ namespace System.Text.Json.Serialization.Tests
         {
             public override T? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => throw new NotImplementedException();
             public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options) => throw new NotImplementedException();
+        }
+
+        private class SomeRecursiveClass
+        {
+            public int IntProp { get; set; }
+            public SomeRecursiveClass RecursiveProperty { get; set; }
         }
 
         private class TestResolver : IJsonTypeInfoResolver
