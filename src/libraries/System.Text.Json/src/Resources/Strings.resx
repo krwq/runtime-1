@@ -396,6 +396,9 @@
   <data name="ResolverTypeNotCompatible" xml:space="preserve">
     <value>TypeInfoResolver expected to return JsonTypeInfo of type '{0}' but returned JsonTypeInfo of type '{1}'.</value>
   </data>
+  <data name="ResolverTypeInfoOptionsNotCompatible" xml:space="preserve">
+    <value>TypeInfoResolver expected to return JsonTypeInfo options bound to the JsonSerializerOptions provided in the argument.</value>
+  </data>
   <data name="SerializationConverterWrite" xml:space="preserve">
     <value>The converter '{0}' wrote too much or not enough.</value>
   </data>

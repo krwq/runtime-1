@@ -12,9 +12,6 @@ namespace System.Text.Json.Serialization.Tests
 {
     public static partial class DefaultJsonTypeInfoResolverTests
     {
-        // TODO: type info assigned to different options
-        // something similar to ThrowHelper.ThrowInvalidOperationException_SerializationConverterNotCompatible(converter.GetType(), typeToConvert);
-
         [Theory]
         [InlineData(typeof(object))]
         [InlineData(typeof(int))]
@@ -182,6 +179,32 @@ namespace System.Text.Json.Serialization.Tests
             Assert.Throws<InvalidOperationException>(() => JsonSerializer.Serialize(testObj, o));
         }
 
+        [Fact]
+        public static void TypeInfoOfWrongOptions()
+        {
+            JsonSerializerOptions wrongOptions = new();
+            DefaultJsonTypeInfoResolver dr = new();
+            TestResolver r = new((type, options) =>
+            {
+                if (type == typeof(int))
+                {
+                    return dr.GetTypeInfo(type, wrongOptions);
+                }
+
+                return dr.GetTypeInfo(type, options);
+            });
+
+            JsonSerializerOptions o = new();
+            o.TypeInfoResolver = r;
+
+            SomeClass testObj = new()
+            {
+                IntProp = 17,
+            };
+
+            Assert.Throws<InvalidOperationException>(() => JsonSerializer.Serialize(testObj, o));
+        }
+
         [Theory]
         [InlineData(typeof(SomeClass), typeof(object))]
         [InlineData(typeof(object), typeof(string))]
@@ -208,7 +231,6 @@ namespace System.Text.Json.Serialization.Tests
 
             Assert.Throws<InvalidOperationException>(() => JsonSerializer.Serialize(testObj, expectedType, o));
         }
-
 
         private class SomeClass
         {

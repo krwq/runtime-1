@@ -672,6 +672,11 @@ namespace System.Text.Json
                 ThrowHelper.ThrowInvalidOperationException_ResolverTypeNotCompatible(type, info.Type);
             }
 
+            if (info.Options != this)
+            {
+                ThrowHelper.ThrowInvalidOperationException_ResolverTypeInfoOptionsNotCompatible();
+            }
+
             info.EnsureConfigured();
             return info;
         }
