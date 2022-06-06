@@ -102,10 +102,8 @@ namespace System.Text.Json.Serialization
                 {
                     options.TypeInfoResolver = this;
                 }
-                else
-                {
-                    _options = options;
-                }
+
+                _options = options;
             }
         }
 
