@@ -286,7 +286,7 @@ namespace System.Text.Json
                     left._includeFields == right._includeFields &&
                     left._propertyNameCaseInsensitive == right._propertyNameCaseInsensitive &&
                     left._writeIndented == right._writeIndented &&
-                    NormalizeResolver(left._typeInfoResolver) == NormalizeResolver(right._typeInfoResolver) &&
+                    left.NormalizedResolver == right.NormalizedResolver &&
                     CompareLists(left._converters, right._converters) &&
                     CompareLists(left._polymorphicTypeConfigurations, right._polymorphicTypeConfigurations);
 
@@ -331,7 +331,7 @@ namespace System.Text.Json
                 hc.Add(options._includeFields);
                 hc.Add(options._propertyNameCaseInsensitive);
                 hc.Add(options._writeIndented);
-                hc.Add(NormalizeResolver(options._typeInfoResolver));
+                hc.Add(options.NormalizedResolver);
                 GetHashCode(ref hc, options._converters);
                 GetHashCode(ref hc, options._polymorphicTypeConfigurations);
 
@@ -345,10 +345,6 @@ namespace System.Text.Json
 
                 return hc.ToHashCode();
             }
-
-            // An options instance might be locked but not initialized for reflection serialization yet.
-            private static IJsonTypeInfoResolver? NormalizeResolver(IJsonTypeInfoResolver? resolver)
-                => resolver ?? DefaultJsonTypeInfoResolver.DefaultInstance;
 
 #if !NETCOREAPP
             /// <summary>

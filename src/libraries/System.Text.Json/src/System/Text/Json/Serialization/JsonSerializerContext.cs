@@ -106,6 +106,7 @@ namespace System.Text.Json.Serialization
                 else
                 {
                     _options = options;
+                    options.SetImpliedResolver(this);
                 }
             }
         }

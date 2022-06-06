@@ -36,6 +36,12 @@ namespace System.Text.Json
 
         // For any new option added, adding it to the options copied in the copy constructor below must be considered.
         private IJsonTypeInfoResolver? _typeInfoResolver;
+        // If _typeInfoResolver is not set, we try to use _impliedTypeInfoResolver, if that is not set we use DefaultJsonTypeInfoResolver
+        private IJsonTypeInfoResolver? _impliedTypeInfoResolver;
+
+        // Effective resolver which doesn't root and can be used for GetHashCode or Equals
+        internal IJsonTypeInfoResolver? NormalizedResolver => _typeInfoResolver ?? _impliedTypeInfoResolver ?? DefaultJsonTypeInfoResolver.DefaultInstance;
+
         private MemberAccessor? _memberAccessorStrategy;
         private JsonNamingPolicy? _dictionaryKeyPolicy;
         private JsonNamingPolicy? _jsonPropertyNamingPolicy;
@@ -173,7 +179,7 @@ namespace System.Text.Json
             [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
             get
             {
-                return _typeInfoResolver ?? DefaultJsonTypeInfoResolver.RootDefaultInstance();
+                return NormalizedResolver ?? DefaultJsonTypeInfoResolver.RootDefaultInstance();
             }
             set
             {
@@ -619,6 +625,18 @@ namespace System.Text.Json
             }
         }
 
+        private bool _moreThanOneImpliedResolverSet;
+
+        // This is used only by JsonSerializerContext ctor which takes options.
+        // For backward compatibility we need to use context as our resolver
+        internal void SetImpliedResolver(IJsonTypeInfoResolver resolver)
+        {
+            VerifyMutable();
+
+            _moreThanOneImpliedResolverSet = _impliedTypeInfoResolver != null;
+            _impliedTypeInfoResolver = resolver;
+        }
+
         internal bool IsInitializedForReflectionSerializer { get; private set; }
         // Effective resolver, populated when enacting reflection-based fallback
         // Should not be taken into account when calculating options equality.
@@ -631,6 +649,13 @@ namespace System.Text.Json
         [RequiresDynamicCode(JsonSerializer.SerializationRequiresDynamicCodeMessage)]
         internal void InitializeForReflectionSerializer()
         {
+            if (_typeInfoResolver == null && _moreThanOneImpliedResolverSet)
+            {
+                ThrowHelper.ThrowInvalidOperationException_SerializerContextOptionsImmutable();
+            }
+
+            _typeInfoResolver ??= _impliedTypeInfoResolver;
+
             if (_typeInfoResolver is JsonSerializerContext ctx)
             {
                 // .NET 6 backward compatibility; use fallback to reflection serialization
