@@ -101,9 +101,12 @@ namespace System.Text.Json.Serialization
                 if (bindOptionsToContext)
                 {
                     options.TypeInfoResolver = this;
+                    Debug.Assert(_options == options, "options.TypeInfoResolver setter did not assign options");
                 }
-
-                _options = options;
+                else
+                {
+                    _options = options;
+                }
             }
         }
 
