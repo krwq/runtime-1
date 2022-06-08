@@ -53,12 +53,8 @@ namespace System.Text.Json.Serialization.Metadata
         /// </summary>
         public Func<object, object?>? Get
         {
-            get => UntypedGetValue;
-            set
-            {
-                CheckMutable();
-                UntypedGetValue = value;
-            }
+            get => _untypedGet;
+            set => SetGetter(value);
         }
 
         /// <summary>
@@ -66,16 +62,15 @@ namespace System.Text.Json.Serialization.Metadata
         /// </summary>
         public Action<object, object?>? Set
         {
-            get => UntypedSetValue;
-            set
-            {
-                CheckMutable();
-                UntypedSetValue = value;
-            }
+            get => _untypedSet;
+            set => SetSetter(value);
         }
 
-        private protected abstract Func<object, object?>? UntypedGetValue { get; set; }
-        private protected abstract Action<object, object?>? UntypedSetValue { get; set; }
+        private protected Func<object, object?>? _untypedGet;
+        private protected Action<object, object?>? _untypedSet;
+
+        private protected abstract void SetGetter(Delegate? getter);
+        private protected abstract void SetSetter(Delegate? setter);
 
         /// <summary>
         /// Decides if property with given declaring object and property value should be serialized.
@@ -136,7 +131,7 @@ namespace System.Text.Json.Serialization.Metadata
         /// </summary>
         public Type PropertyType { get; private protected set; } = null!;
 
-        private void CheckMutable()
+        private protected void CheckMutable()
         {
             if (_isConfigured)
             {
@@ -443,8 +438,8 @@ namespace System.Text.Json.Serialization.Metadata
         }
 #endif
 
-        internal bool HasGetter { get; set; }
-        internal bool HasSetter { get; set; }
+        internal bool HasGetter => _untypedGet is not null;
+        internal bool HasSetter => _untypedSet is not null;
 
         internal abstract void Initialize(
             Type parentClassType,

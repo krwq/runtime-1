@@ -44,17 +44,8 @@ namespace System.Text.Json.Serialization.Metadata
             }
             else if (createObject is Func<T> typedDelegate)
             {
-                if (createObject is Func<object> untypedDelegate)
-                {
-                    untypedCreateObject = untypedDelegate;
-                }
-                else
-                {
-                    // we will get here if T is value type
-                    untypedCreateObject = () => typedDelegate()!;
-                }
-
                 typedCreateObject = typedDelegate;
+                untypedCreateObject = createObject is Func<object> untypedDelegate ? untypedDelegate : () => typedDelegate()!;
             }
             else
             {

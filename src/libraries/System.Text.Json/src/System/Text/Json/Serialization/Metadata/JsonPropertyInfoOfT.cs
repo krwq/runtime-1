@@ -27,45 +27,66 @@ namespace System.Text.Json.Serialization.Metadata
         // the property's type, we track that and whether the property type can be null.
         private bool _propertyTypeEqualsTypeToConvert;
 
-        private Func<object, object?>? _untypedGet;
-        private Action<object, object?>? _untypedSet;
+        private Func<object, T>? _typedGet;
+        private Action<object, T>? _typedSet;
 
-        // We do not need to worry about invalidating _untypedGet/_untypedSet
-        // because these are only set during construction
-        // If these ever became public we'd need to ensure respective value is set to null here
-        private Func<object, T>? TypedGetValue { get; set; }
-
-        private Action<object, T>? TypedSetValue { get; set; }
-
-        private protected override Func<object, object?>? UntypedGetValue
+        internal new Func<object, T>? Get
         {
-            get
+            get => _typedGet;
+            set => SetGetter(value);
+        }
+
+        internal new Action<object, T>? Set
+        {
+            get => _typedSet;
+            set => SetSetter(value);
+        }
+
+        private protected override void SetGetter(Delegate? getter)
+        {
+            Debug.Assert(getter is null or Func<object, object?> or Func<object, T>);
+
+            CheckMutable();
+
+            if (getter is null)
             {
-                // We use local here so that we don't capture 'this'
-                Func<object, T>? typedGetValue = TypedGetValue;
-                return _untypedGet ??= typedGetValue == null ? null : (o) => typedGetValue(o);
+                _typedGet = null;
+                _untypedGet = null;
             }
-            set
+            else if (getter is Func<object, T> typedGetter)
             {
-                _untypedGet = value;
-                TypedGetValue = value == null ? null : (o) => (T)value(o)!;
-                HasGetter = value != null;
+                _typedGet = typedGetter;
+                _untypedGet = getter is Func<object, object?> untypedGet ? untypedGet : obj => typedGetter(obj);
+            }
+            else
+            {
+                Func<object, object?> untypedGet = (Func<object, object?>)getter;
+                _typedGet = (obj => (T)untypedGet(obj)!);
+                _untypedGet = untypedGet;
             }
         }
 
-        private protected override Action<object, object?>? UntypedSetValue
+        private protected override void SetSetter(Delegate? setter)
         {
-            get
+            Debug.Assert(setter is null or Action<object, object?> or Action<object, T>);
+
+            CheckMutable();
+
+            if (setter is null)
             {
-                // We use local here so that we don't capture 'this'
-                Action<object, T>? typedSetValue = TypedSetValue;
-                return _untypedSet ??= typedSetValue == null ? null : (o, v) => typedSetValue(o, (T)v!);
+                _typedSet = null;
+                _untypedSet = null;
             }
-            set
+            else if (setter is Action<object, T> typedSetter)
             {
-                _untypedSet = value;
-                TypedSetValue = value == null ? null : (o, v) => value(o, v);
-                HasSetter = value != null;
+                _typedSet = typedSetter;
+                _untypedSet = setter is Action<object, object?> untypedSet ? untypedSet : (obj, value) => typedSetter(obj, (T)value!);
+            }
+            else
+            {
+                Action<object, object?> untypedSet = (Action<object, object?>)setter;
+                _typedSet = ((obj, value) => untypedSet(obj, (T)value!));
+                _untypedSet = untypedSet;
             }
         }
 
@@ -112,15 +133,13 @@ namespace System.Text.Json.Serialization.Metadata
                             MethodInfo? getMethod = propertyInfo.GetMethod;
                             if (getMethod != null && (getMethod.IsPublic || useNonPublicAccessors))
                             {
-                                HasGetter = true;
-                                TypedGetValue = options.MemberAccessorStrategy.CreatePropertyGetter<T>(propertyInfo);
+                                Get = options.MemberAccessorStrategy.CreatePropertyGetter<T>(propertyInfo);
                             }
 
                             MethodInfo? setMethod = propertyInfo.SetMethod;
                             if (setMethod != null && (setMethod.IsPublic || useNonPublicAccessors))
                             {
-                                HasSetter = true;
-                                TypedSetValue = options.MemberAccessorStrategy.CreatePropertySetter<T>(propertyInfo);
+                                Set = options.MemberAccessorStrategy.CreatePropertySetter<T>(propertyInfo);
                             }
 
                             MemberType = MemberTypes.Property;
@@ -132,13 +151,11 @@ namespace System.Text.Json.Serialization.Metadata
                         {
                             Debug.Assert(fieldInfo.IsPublic);
 
-                            HasGetter = true;
-                            TypedGetValue = options.MemberAccessorStrategy.CreateFieldGetter<T>(fieldInfo);
+                            Get = options.MemberAccessorStrategy.CreateFieldGetter<T>(fieldInfo);
 
                             if (!fieldInfo.IsInitOnly)
                             {
-                                HasSetter = true;
-                                TypedSetValue = options.MemberAccessorStrategy.CreateFieldSetter<T>(fieldInfo);
+                                Set = options.MemberAccessorStrategy.CreateFieldSetter<T>(fieldInfo);
                             }
 
                             MemberType = MemberTypes.Field;
@@ -158,8 +175,6 @@ namespace System.Text.Json.Serialization.Metadata
             else if (!isCustomProperty)
             {
                 IsForTypeInfo = true;
-                HasGetter = true;
-                HasSetter = true;
             }
         }
 
@@ -213,10 +228,8 @@ namespace System.Text.Json.Serialization.Metadata
             }
             else
             {
-                TypedGetValue = propertyInfo.Getter!;
-                TypedSetValue = propertyInfo.Setter;
-                HasGetter = TypedGetValue != null;
-                HasSetter = TypedSetValue != null;
+                Get = propertyInfo.Getter!;
+                Set = propertyInfo.Setter;
                 JsonTypeInfo = propertyTypeInfo;
                 DeclaringType = declaringType;
                 IgnoreCondition = propertyInfo.IgnoreCondition;
@@ -277,12 +290,12 @@ namespace System.Text.Json.Serialization.Metadata
             }
 
             Debug.Assert(HasGetter);
-            return TypedGetValue!(obj);
+            return Get!(obj);
         }
 
         internal override bool GetMemberAndWriteJson(object obj, ref WriteStack state, Utf8JsonWriter writer)
         {
-            T value = TypedGetValue!(obj);
+            T value = Get!(obj);
 
             if (ShouldSerialize != null)
             {
@@ -384,7 +397,7 @@ namespace System.Text.Json.Serialization.Metadata
         internal override bool GetMemberAndWriteJsonExtensionData(object obj, ref WriteStack state, Utf8JsonWriter writer)
         {
             bool success;
-            T value = TypedGetValue!(obj);
+            T value = Get!(obj);
 
             if (ShouldSerialize != null)
             {
@@ -425,7 +438,7 @@ namespace System.Text.Json.Serialization.Metadata
                 if (!IgnoreDefaultValuesOnRead)
                 {
                     T? value = default;
-                    TypedSetValue!(obj, value!);
+                    Set!(obj, value!);
                 }
 
                 success = true;
@@ -439,7 +452,7 @@ namespace System.Text.Json.Serialization.Metadata
                 {
                     // Optimize for internal converters by avoiding the extra call to TryRead.
                     T? fastValue = TypedEffectiveConverter.Read(ref reader, PropertyType, Options);
-                    TypedSetValue!(obj, fastValue!);
+                    Set!(obj, fastValue!);
                 }
 
                 success = true;
@@ -470,7 +483,7 @@ namespace System.Text.Json.Serialization.Metadata
                             }
                         }
 
-                        TypedSetValue!(obj, value!);
+                        Set!(obj, value!);
                     }
                 }
             }
@@ -517,7 +530,7 @@ namespace System.Text.Json.Serialization.Metadata
         {
             Debug.Assert(HasSetter);
             T typedValue = (T)extensionDict!;
-            TypedSetValue!(obj, typedValue);
+            Set!(obj, typedValue);
         }
     }
 }
