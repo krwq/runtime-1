@@ -15,7 +15,7 @@ namespace System.Text.Json.Serialization.Converters
     /// <typeparam name="T">The type to converter</typeparam>
     internal sealed class JsonMetadataServicesConverter<T> : JsonResumableConverter<T>
     {
-        private readonly Func<JsonConverter<T>> _converterCreator;
+        private readonly Func<JsonConverter<T>>? _converterCreator;
 
         private readonly ConverterStrategy _converterStrategy;
 
@@ -26,7 +26,7 @@ namespace System.Text.Json.Serialization.Converters
         {
             get
             {
-                _converter ??= _converterCreator();
+                _converter ??= _converterCreator!();
                 Debug.Assert(_converter != null);
                 Debug.Assert(_converter.ConverterStrategy == _converterStrategy);
                 return _converter;
@@ -52,6 +52,12 @@ namespace System.Text.Json.Serialization.Converters
 
             _converterCreator = converterCreator;
             _converterStrategy = converterStrategy;
+        }
+
+        public JsonMetadataServicesConverter(JsonConverter<T> converter)
+        {
+            _converter = converter;
+            _converterStrategy = converter.ConverterStrategy;
         }
 
         internal override bool OnTryRead(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options, ref ReadStack state, out T? value)

@@ -53,7 +53,7 @@ namespace System.Text.Json.Serialization.Metadata
             Func<JsonConverter<T>> converterCreator,
             object? createObjectWithArgs = null,
             object? addFunc = null)
-            : base(GetConverter(collectionInfo, converterCreator), options)
+            : base(new JsonMetadataServicesConverter<T>(converterCreator()), options)
         {
             if (collectionInfo is null)
             {
@@ -61,7 +61,7 @@ namespace System.Text.Json.Serialization.Metadata
             }
 
             KeyTypeInfo = collectionInfo.KeyInfo;
-            ElementTypeInfo = collectionInfo.ElementInfo ?? throw new ArgumentNullException(nameof(collectionInfo.ElementInfo));
+            ElementTypeInfo = collectionInfo.ElementInfo;
             Debug.Assert(Kind != JsonTypeInfoKind.None);
             NumberHandling = collectionInfo.NumberHandling;
             SerializeHandler = collectionInfo.SerializeHandler;
@@ -86,12 +86,6 @@ namespace System.Text.Json.Serialization.Metadata
                 return new JsonMetadataServicesConverter<T>(() => new ObjectDefaultConverter<T>(), ConverterStrategy.Object);
             }
 #pragma warning restore CS8714
-        }
-
-        private static JsonConverter GetConverter(JsonCollectionInfoValues<T> collectionInfo, Func<JsonConverter<T>> converterCreator)
-        {
-            ConverterStrategy strategy = collectionInfo.KeyInfo == null ? ConverterStrategy.Enumerable : ConverterStrategy.Dictionary;
-            return new JsonMetadataServicesConverter<T>(converterCreator, strategy);
         }
 
         internal override void LateAddProperties()

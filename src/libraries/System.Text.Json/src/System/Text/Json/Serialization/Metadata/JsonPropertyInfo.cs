@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json.Reflection;
 
@@ -153,6 +154,7 @@ namespace System.Text.Json.Serialization.Metadata
             }
 
             SetEffectiveConverter();
+            ConverterStrategy = EffectiveConverter.ConverterStrategy;
 
             if (IsForTypeInfo)
             {
@@ -574,7 +576,7 @@ namespace System.Text.Json.Serialization.Metadata
                     // Slower path for non-generic types that implement IDictionary<,>.
                     // It is possible to cache this converter on JsonTypeInfo if we assume the property value
                     // will always be the same type for all instances.
-                    converter = Options.GetConverterInternal(dictionaryValueType);
+                    converter = Options.GetConverterFromTypeInfo(dictionaryValueType);
                 }
 
                 Debug.Assert(converter != null);
@@ -596,7 +598,7 @@ namespace System.Text.Json.Serialization.Metadata
                 return true;
             }
 
-            JsonConverter<JsonElement> converter = (JsonConverter<JsonElement>)Options.GetConverterInternal(typeof(JsonElement));
+            JsonConverter<JsonElement> converter = (JsonConverter<JsonElement>)Options.GetConverterFromTypeInfo(typeof(JsonElement));
             if (!converter.TryRead(ref reader, typeof(JsonElement), Options, ref state, out JsonElement jsonElement))
             {
                 // JsonElement is a struct that must be read in full.
@@ -612,6 +614,7 @@ namespace System.Text.Json.Serialization.Metadata
 
         internal MemberInfo? MemberInfo { get; set; }
 
+        [AllowNull]
         internal JsonTypeInfo JsonTypeInfo
         {
             get

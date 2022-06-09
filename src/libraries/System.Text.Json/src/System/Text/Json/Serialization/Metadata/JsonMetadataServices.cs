@@ -37,12 +37,6 @@ namespace System.Text.Json.Serialization.Metadata
                 throw new ArgumentException(nameof(propertyInfo.DeclaringType));
             }
 
-            JsonTypeInfo? propertyTypeInfo = propertyInfo.PropertyTypeInfo;
-            if (propertyTypeInfo == null)
-            {
-                throw new ArgumentException(nameof(propertyInfo.PropertyTypeInfo));
-            }
-
             string? propertyName = propertyInfo.PropertyName;
             if (propertyName == null)
             {
@@ -90,6 +84,15 @@ namespace System.Text.Json.Serialization.Metadata
         /// <remarks>This API is for use by the output of the System.Text.Json source generator and should not be called directly.</remarks>
         public static JsonTypeInfo<T> CreateValueInfo<T>(JsonSerializerOptions options, JsonConverter converter)
         {
+            if (options is null)
+            {
+                ThrowHelper.ThrowArgumentNullException(nameof(options));
+            }
+            if (converter is null)
+            {
+                ThrowHelper.ThrowArgumentNullException(nameof(converter));
+            }
+
             JsonTypeInfo<T> info = new SourceGenJsonTypeInfo<T>(converter, options);
             return info;
         }

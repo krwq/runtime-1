@@ -55,9 +55,12 @@ namespace System.Text.Json
             return converter;
         }
 
+        /// <summary>
+        /// Gets converter for type but does not use TypeInfoResolver
+        /// </summary>
         internal JsonConverter GetConverterForType(Type typeToConvert)
         {
-            JsonConverter converter = GetConverterInternal(typeToConvert);
+            JsonConverter converter = GetConverterFromOptionsOrReflectionConverter(typeToConvert);
             Debug.Assert(converter != null);
 
             converter = ExpandFactoryConverter(converter, typeToConvert);
@@ -122,39 +125,77 @@ namespace System.Text.Json
             }
 
             DefaultJsonTypeInfoResolver.RootDefaultInstance();
-            return GetConverterInternal(typeToConvert);
+            return GetConverterFromTypeInfo(typeToConvert);
         }
 
-        internal JsonConverter GetConverterInternal(Type typeToConvert)
+        /// <summary>
+        /// Same as GetConverter but does not root converters
+        /// </summary>
+        internal JsonConverter GetConverterFromTypeInfo(Type typeToConvert)
         {
-            // Only cache the value once (de)serialization has occurred since new converters can be added that may change the result.
-            if (_cachingContext != null)
+            if (_cachingContext == null)
             {
-                return _cachingContext.GetOrAddConverter(typeToConvert);
+                if (_isLockedInstance)
+                {
+                    InitializeCachingContext();
+                }
+                else
+                {
+                    // We do not want to lock options instance here but we need to return correct answer
+                    // which means we need to go through TypeInfoResolver but without caching because that's the
+                    // only place which will have correct converter for JsonSerializerContext and reflection
+                    // based resolver. It will also work correctly for combined resolvers.
+                    JsonConverter? converter = GetTypeInfoInternal(typeToConvert)?.Converter;
+                    converter ??= GetConverterFromOptionsOrReflectionConverter(typeToConvert);
+                    return converter;
+                }
             }
 
-            return GetConverterFromType(typeToConvert);
+            return _cachingContext.GetOrAddConverter(typeToConvert);
         }
 
-        internal JsonConverter GetConverterFromType(Type typeToConvert)
+        /// <summary>
+        /// Gets converter from type info without using converter cache.
+        /// This method is used by converter cache. It may use type info cache.
+        /// </summary>
+        private JsonConverter GetConverterFromTypeInfoOrOptionsNotCached(Type typeToConvert)
         {
-            Debug.Assert(typeToConvert != null);
+            Debug.Assert(_cachingContext != null, "GetConverterFromTypeInfoOrOptionsNotCached should be called only from cache");
+            JsonConverter? converter = _cachingContext.GetOrAddJsonTypeInfo(typeToConvert)?.Converter;
 
-            // Priority 1: If there is a JsonSerializerContext, fetch the converter from there.
-            JsonConverter? converter = SerializerContext?.GetTypeInfo(typeToConvert)?.Converter;
+            // we can get here if resolver returned null but converter was added for the type
+            converter ??= GetConverterFromOptions(typeToConvert);
 
-            // Priority 2: Attempt to get custom converter added at runtime.
-            // Currently there is not a way at runtime to override the [JsonConverter] when applied to a property.
+            if (converter == null)
+            {
+                ThrowHelper.ThrowNotSupportedException_BuiltInConvertersNotRooted(typeToConvert);
+                return null!;
+            }
+
+            return converter;
+        }
+
+        private JsonConverter? GetConverterFromOptions(Type typeToConvert)
+        {
             foreach (JsonConverter item in _converters)
             {
                 if (item.CanConvert(typeToConvert))
                 {
-                    converter = item;
-                    break;
+                    return item;
                 }
             }
 
-            // Priority 3: Attempt to get converter from [JsonConverter] on the type being converted.
+            return null;
+        }
+
+        private JsonConverter GetConverterFromOptionsOrReflectionConverter(Type typeToConvert)
+        {
+            Debug.Assert(typeToConvert != null);
+
+            // Priority 1: Attempt to get custom converter from the Converters list.
+            JsonConverter? converter = GetConverterFromOptions(typeToConvert);
+
+            // Priority 2: Attempt to get converter from [JsonConverter] on the type being converted.
             if (converter == null)
             {
                 JsonConverterAttribute? converterAttribute = (JsonConverterAttribute?)
@@ -166,7 +207,7 @@ namespace System.Text.Json
                 }
             }
 
-            // Priority 4: Attempt to get built-in converter.
+            // Priority 3: Attempt to get built-in converter.
             if (converter == null)
             {
                 converter = DefaultJsonTypeInfoResolver.GetDefaultConverter(typeToConvert);

@@ -128,6 +128,67 @@ namespace System.Text.Json.SourceGeneration.Tests
             JsonSerializer.Deserialize<T>(json, options);
         }
 
+        [ConditionalFact(typeof(RemoteExecutor), nameof(RemoteExecutor.IsSupported))]
+        public static void CombiningContextWithCustomResolver_ReplacePoco()
+        {
+            TestResolver customResolver = new((type, options) =>
+            {
+                if (type != typeof(TestPoco))
+                    return null;
+
+                JsonTypeInfo<TestPoco> typeInfo = JsonTypeInfo.CreateJsonTypeInfo<TestPoco>(options);
+                typeInfo.CreateObject = () => new TestPoco();
+                JsonPropertyInfo property = typeInfo.CreateJsonPropertyInfo(typeof(string), "test");
+                property.Get = (o) => System.Runtime.CompilerServices.Unsafe.Unbox<TestPoco>(o).IntProperty.ToString();
+                property.Set = (o, val) =>
+                {
+                    System.Runtime.CompilerServices.Unsafe.Unbox<TestPoco>(o).StringProperty = (string)val;
+                    System.Runtime.CompilerServices.Unsafe.Unbox<TestPoco>(o).IntProperty = int.Parse((string)val);
+                };
+
+                typeInfo.Properties.Add(property);
+                return typeInfo;
+            });
+
+            JsonSerializerOptions o = new();
+            o.TypeInfoResolver = JsonTypeInfoResolver.Combine(customResolver, ClassWithPocoListDictionaryAndNullablePropertyContext.Default);
+
+            // ensure we're not falling back to reflection serialization
+            Assert.Throws<NotSupportedException>(() => JsonSerializer.Serialize(new Person("a", "b"), o));
+            Assert.Throws<NotSupportedException>(() => JsonSerializer.Serialize((byte)1, o));
+
+            ClassWithPocoListDictionaryAndNullable obj = new()
+            {
+                UIntProperty = 13,
+                ListOfPocoProperty = new List<TestPoco>() { new TestPoco() { IntProperty = 4 }, new TestPoco() { IntProperty = 5 } },
+                DictionaryPocoValueProperty = new Dictionary<char, TestPoco>() { ['c'] = new TestPoco() { IntProperty = 6 }, ['d'] = new TestPoco() { IntProperty = 7 } },
+                NullablePocoProperty = new TestPoco() { IntProperty = 8 },
+                PocoProperty = new TestPoco() { IntProperty = 9 },
+            };
+
+            string json = JsonSerializer.Serialize(obj, o);
+            Assert.Equal("""{"UIntProperty":13,"ListOfPocoProperty":[{"test":"4"},{"test":"5"}],"DictionaryPocoValueProperty":{"c":{"test":"6"},"d":{"test":"7"}},"NullablePocoProperty":{"test":"8"},"PocoProperty":{"test":"9"}}""", json);
+
+            ClassWithPocoListDictionaryAndNullable deserialized = JsonSerializer.Deserialize<ClassWithPocoListDictionaryAndNullable>(json, o);
+            Assert.Equal(obj.UIntProperty, deserialized.UIntProperty);
+            Assert.Equal(obj.ListOfPocoProperty.Count, deserialized.ListOfPocoProperty.Count);
+            Assert.Equal(2, obj.ListOfPocoProperty.Count);
+            Assert.Equal(obj.ListOfPocoProperty[0].IntProperty.ToString(), deserialized.ListOfPocoProperty[0].StringProperty);
+            Assert.Equal(obj.ListOfPocoProperty[0].IntProperty, deserialized.ListOfPocoProperty[0].IntProperty);
+            Assert.Equal(obj.ListOfPocoProperty[1].IntProperty.ToString(), deserialized.ListOfPocoProperty[1].StringProperty);
+            Assert.Equal(obj.ListOfPocoProperty[1].IntProperty, deserialized.ListOfPocoProperty[1].IntProperty);
+            Assert.Equal(obj.DictionaryPocoValueProperty.Count, deserialized.DictionaryPocoValueProperty.Count);
+            Assert.Equal(2, obj.DictionaryPocoValueProperty.Count);
+            Assert.Equal(obj.DictionaryPocoValueProperty['c'].IntProperty.ToString(), deserialized.DictionaryPocoValueProperty['c'].StringProperty);
+            Assert.Equal(obj.DictionaryPocoValueProperty['c'].IntProperty, deserialized.DictionaryPocoValueProperty['c'].IntProperty);
+            Assert.Equal(obj.DictionaryPocoValueProperty['d'].IntProperty.ToString(), deserialized.DictionaryPocoValueProperty['d'].StringProperty);
+            Assert.Equal(obj.DictionaryPocoValueProperty['d'].IntProperty, deserialized.DictionaryPocoValueProperty['d'].IntProperty);
+            Assert.Equal(obj.NullablePocoProperty.Value.IntProperty.ToString(), deserialized.NullablePocoProperty.Value.StringProperty);
+            Assert.Equal(obj.NullablePocoProperty.Value.IntProperty, deserialized.NullablePocoProperty.Value.IntProperty);
+            Assert.Equal(obj.PocoProperty.IntProperty.ToString(), deserialized.PocoProperty.StringProperty);
+            Assert.Equal(obj.PocoProperty.IntProperty, deserialized.PocoProperty.IntProperty);
+        }
+
         public static IEnumerable<object[]> GetCombiningContextsData()
         {
             yield return WrapArgs(new JsonMessage { Message = "Hi" }, """{ "Message" : "Hi", "Length" : 2 }""");
@@ -191,6 +252,39 @@ namespace System.Text.Json.SourceGeneration.Tests
         [JsonSerializable(typeof(List<TestEnum>))]
         internal partial class GenericParameterWithCustomConverterFactoryContext : JsonSerializerContext
         {
+        }
+
+        [JsonSerializable(typeof(ClassWithPocoListDictionaryAndNullable))]
+        internal partial class ClassWithPocoListDictionaryAndNullablePropertyContext : JsonSerializerContext
+        {
+
+        }
+
+        internal class ClassWithPocoListDictionaryAndNullable
+        {
+            public uint UIntProperty { get; set; }
+            public List<TestPoco> ListOfPocoProperty { get; set; }
+            public Dictionary<char, TestPoco> DictionaryPocoValueProperty { get; set; }
+            public TestPoco? NullablePocoProperty { get; set; }
+            public TestPoco PocoProperty { get; set; }
+        }
+
+        internal struct TestPoco
+        {
+            public string StringProperty { get; set; }
+            public int IntProperty { get; set; }
+        }
+
+        internal class TestResolver : IJsonTypeInfoResolver
+        {
+            private Func<Type, JsonSerializerOptions, JsonTypeInfo?> _getTypeInfo;
+
+            public TestResolver(Func<Type, JsonSerializerOptions, JsonTypeInfo?> getTypeInfo)
+            {
+                _getTypeInfo = getTypeInfo;
+            }
+
+            public JsonTypeInfo? GetTypeInfo(Type type, JsonSerializerOptions options) => _getTypeInfo(type, options);
         }
     }
 }

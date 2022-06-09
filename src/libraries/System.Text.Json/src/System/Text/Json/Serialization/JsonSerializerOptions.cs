@@ -652,28 +652,24 @@ namespace System.Text.Json
             IsInitializedForReflectionSerializer = true;
         }
 
-        private JsonTypeInfo GetJsonTypeInfoFromContextOrCreate(Type type)
+        private JsonTypeInfo? GetTypeInfoInternal(Type type)
         {
             IJsonTypeInfoResolver? resolver = _effectiveJsonTypeInfoResolver ?? _typeInfoResolver;
             JsonTypeInfo? info = resolver?.GetTypeInfo(type, this);
 
-            if (info == null)
+            if (info != null)
             {
-                ThrowHelper.ThrowNotSupportedException_NoMetadataForType(type);
-                return null!;
+                if (info.Type != type)
+                {
+                    ThrowHelper.ThrowInvalidOperationException_ResolverTypeNotCompatible(type, info.Type);
+                }
+
+                if (info.Options != this)
+                {
+                    ThrowHelper.ThrowInvalidOperationException_ResolverTypeInfoOptionsNotCompatible();
+                }
             }
 
-            if (info.Type != type)
-            {
-                ThrowHelper.ThrowInvalidOperationException_ResolverTypeNotCompatible(type, info.Type);
-            }
-
-            if (info.Options != this)
-            {
-                ThrowHelper.ThrowInvalidOperationException_ResolverTypeInfoOptionsNotCompatible();
-            }
-
-            info.EnsureConfigured();
             return info;
         }
 

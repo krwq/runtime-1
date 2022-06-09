@@ -403,6 +403,8 @@ namespace System.Text.Json.Serialization.Metadata
         /// <typeparam name="T">Type for which JsonTypeInfo stores metadata for</typeparam>
         /// <param name="options">Options associated with JsonTypeInfo</param>
         /// <returns>JsonTypeInfo instance</returns>
+        [RequiresUnreferencedCode("JSON serialization and deserialization might require types that cannot be statically analyzed and might need runtime code generation. Use generic overload or System.Text.Json source generation for native AOT applications.")]
+        [RequiresDynamicCode("JSON serialization and deserialization might require types that cannot be statically analyzed and might need runtime code generation. Use generic overload or System.Text.Json source generation for native AOT applications.")]
         public static JsonTypeInfo<T> CreateJsonTypeInfo<T>(JsonSerializerOptions options)
         {
             return new CustomJsonTypeInfo<T>(options);
@@ -663,7 +665,7 @@ namespace System.Text.Json.Serialization.Metadata
                 // Avoid a reference to typeof(JsonNode) to support trimming.
                 (memberType.FullName == JsonObjectTypeName && ReferenceEquals(memberType.Assembly, GetType().Assembly));
 
-            return typeIsValid && Options.GetConverterInternal(memberType) != null;
+            return typeIsValid && Options.GetConverterFromTypeInfo(memberType) != null;
         }
 
         internal JsonPropertyDictionary<JsonPropertyInfo> CreatePropertyCache(int capacity)

@@ -23,6 +23,9 @@ namespace System.Text.Json
         // Simple LRU cache for the public (de)serialize entry points that avoid some lookups in _cachingContext.
         private volatile JsonTypeInfo? _lastTypeInfo;
 
+        /// <summary>
+        /// This method returns configured non-null JsonTypeInfo
+        /// </summary>
         internal JsonTypeInfo GetOrAddJsonTypeInfo(Type type)
         {
             if (_cachingContext == null)
@@ -30,7 +33,17 @@ namespace System.Text.Json
                 InitializeCachingContext();
             }
 
-            return _cachingContext.GetOrAddJsonTypeInfo(type);
+            JsonTypeInfo? typeInfo = _cachingContext.GetOrAddJsonTypeInfo(type);
+
+            if (typeInfo == null)
+            {
+                ThrowHelper.ThrowNotSupportedException_NoMetadataForType(type);
+                return null;
+            }
+
+            typeInfo.EnsureConfigured();
+
+            return typeInfo;
         }
 
         internal bool TryGetJsonTypeInfo(Type type, [NotNullWhen(true)] out JsonTypeInfo? typeInfo)
@@ -97,8 +110,24 @@ namespace System.Text.Json
             // Property only accessed by reflection in testing -- do not remove.
             // If changing please ensure that src/ILLink.Descriptors.LibraryBuild.xml is up-to-date.
             public int Count => _converterCache.Count + _jsonTypeInfoCache.Count;
-            public JsonConverter GetOrAddConverter(Type type) => _converterCache.GetOrAdd(type, Options.GetConverterFromType);
-            public JsonTypeInfo GetOrAddJsonTypeInfo(Type type) => _jsonTypeInfoCache.GetOrAdd(type, Options.GetJsonTypeInfoFromContextOrCreate);
+            public JsonConverter GetOrAddConverter(Type type) => _converterCache.GetOrAdd(type, Options.GetConverterFromTypeInfoOrOptionsNotCached);
+
+            public JsonTypeInfo? GetOrAddJsonTypeInfo(Type type)
+            {
+                if (_jsonTypeInfoCache.TryGetValue(type, out JsonTypeInfo? typeInfo))
+                {
+                    return typeInfo;
+                }
+
+                typeInfo = Options.GetTypeInfoInternal(type);
+                if (typeInfo != null)
+                {
+                    return _jsonTypeInfoCache.GetOrAdd(type, _ => typeInfo);
+                }
+
+                return null;
+            }
+
             public bool TryGetJsonTypeInfo(Type type, [NotNullWhen(true)] out JsonTypeInfo? typeInfo) => _jsonTypeInfoCache.TryGetValue(type, out typeInfo);
             public bool IsJsonTypeInfoCached(Type type) => _jsonTypeInfoCache.ContainsKey(type);
 

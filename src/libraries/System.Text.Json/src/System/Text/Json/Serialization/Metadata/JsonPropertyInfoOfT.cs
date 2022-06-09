@@ -225,19 +225,14 @@ namespace System.Text.Json.Serialization.Metadata
             _propertyTypeEqualsTypeToConvert = true;
             PropertyTypeCanBeNull = PropertyType.CanBeNull();
 
-            JsonTypeInfo propertyTypeInfo = propertyInfo.PropertyTypeInfo;
+            JsonTypeInfo? propertyTypeInfo = propertyInfo.PropertyTypeInfo;
             Type declaringType = propertyInfo.DeclaringType;
 
             JsonConverter<T>? typedCustomConverter = propertyInfo.Converter;
             CustomConverter = typedCustomConverter;
 
-            JsonConverter<T>? typedNonCustomConverter = propertyTypeInfo.Converter as JsonConverter<T>;
+            JsonConverter<T>? typedNonCustomConverter = propertyTypeInfo?.Converter as JsonConverter<T>;
             NonCustomConverter = typedNonCustomConverter;
-            JsonConverter<T>? typedEffectiveConverter = typedCustomConverter ?? typedNonCustomConverter;
-            if (typedEffectiveConverter == null)
-            {
-                throw new InvalidOperationException(SR.Format(SR.ConverterForPropertyMustBeValid, declaringType, ClrName, typeof(T)));
-            }
 
             IsIgnored = propertyInfo.IgnoreCondition == JsonIgnoreCondition.Always;
             if (!IsIgnored)
@@ -250,7 +245,6 @@ namespace System.Text.Json.Serialization.Metadata
             DeclaringType = declaringType;
             IgnoreCondition = propertyInfo.IgnoreCondition;
             MemberType = propertyInfo.IsProperty ? MemberTypes.Property : MemberTypes.Field;
-            ConverterStrategy = typedEffectiveConverter.ConverterStrategy;
             NumberHandling = propertyInfo.NumberHandling;
 
             if (IgnoreCondition != null)
@@ -278,7 +272,7 @@ namespace System.Text.Json.Serialization.Metadata
                 JsonSerializerOptions.CheckConverterNullabilityIsSameAsPropertyType(customConverter, PropertyType);
             }
 
-            JsonConverter effectiveConverter = customConverter ?? NonCustomConverter ?? Options.GetConverterForType(PropertyType);
+            JsonConverter effectiveConverter = customConverter ?? NonCustomConverter ?? Options.GetConverterFromTypeInfo(PropertyType);
             if (effectiveConverter.TypeToConvert == PropertyType)
             {
                 EffectiveConverter = effectiveConverter;
