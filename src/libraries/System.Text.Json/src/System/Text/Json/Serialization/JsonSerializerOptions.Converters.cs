@@ -145,22 +145,12 @@ namespace System.Text.Json
                     // which means we need to go through TypeInfoResolver but without caching because that's the
                     // only place which will have correct converter for JsonSerializerContext and reflection
                     // based resolver. It will also work correctly for combined resolvers.
-                    JsonConverter? converter = GetTypeInfoInternal(typeToConvert)?.Converter;
-                    converter ??= GetConverterFromOptionsOrReflectionConverter(typeToConvert);
-                    return converter;
+                    return GetTypeInfoInternal(typeToConvert)?.Converter
+                        ?? GetConverterFromOptionsOrReflectionConverter(typeToConvert);
+
                 }
             }
 
-            return _cachingContext.GetOrAddConverter(typeToConvert);
-        }
-
-        /// <summary>
-        /// Gets converter from type info without using converter cache.
-        /// This method is used by converter cache. It may use type info cache.
-        /// </summary>
-        private JsonConverter GetConverterFromTypeInfoOrOptionsNotCached(Type typeToConvert)
-        {
-            Debug.Assert(_cachingContext != null, "GetConverterFromTypeInfoOrOptionsNotCached should be called only from cache");
             JsonConverter? converter = _cachingContext.GetOrAddJsonTypeInfo(typeToConvert)?.Converter;
 
             // we can get here if resolver returned null but converter was added for the type

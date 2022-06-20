@@ -98,7 +98,6 @@ namespace System.Text.Json
         /// </summary>
         internal sealed class CachingContext
         {
-            private readonly ConcurrentDictionary<Type, JsonConverter> _converterCache = new();
             private readonly ConcurrentDictionary<Type, JsonTypeInfo> _jsonTypeInfoCache = new();
 
             public CachingContext(JsonSerializerOptions options)
@@ -109,8 +108,7 @@ namespace System.Text.Json
             public JsonSerializerOptions Options { get; }
             // Property only accessed by reflection in testing -- do not remove.
             // If changing please ensure that src/ILLink.Descriptors.LibraryBuild.xml is up-to-date.
-            public int Count => _converterCache.Count + _jsonTypeInfoCache.Count;
-            public JsonConverter GetOrAddConverter(Type type) => _converterCache.GetOrAdd(type, Options.GetConverterFromTypeInfoOrOptionsNotCached);
+            public int Count => _jsonTypeInfoCache.Count;
 
             public JsonTypeInfo? GetOrAddJsonTypeInfo(Type type)
             {
@@ -133,7 +131,6 @@ namespace System.Text.Json
 
             public void Clear()
             {
-                _converterCache.Clear();
                 _jsonTypeInfoCache.Clear();
             }
         }
