@@ -9,7 +9,7 @@ using System.Text.Json.Serialization.Metadata;
 
 namespace System.Text.Json
 {
-    internal sealed class JsonPropertyDictionaryJsonPropertyValueList : IList<JsonPropertyInfo>
+    internal sealed class JsonPropertyInfoDictionaryValueList : IList<JsonPropertyInfo>
     {
         private readonly JsonPropertyDictionary<JsonPropertyInfo> _parent;
         private List<JsonPropertyInfo>? _items;
@@ -35,7 +35,7 @@ namespace System.Text.Json
             }
         }
 
-        public JsonPropertyDictionaryJsonPropertyValueList(JsonPropertyDictionary<JsonPropertyInfo> parent, JsonTypeInfo parentTypeInfo, bool isReadOnly)
+        public JsonPropertyInfoDictionaryValueList(JsonPropertyDictionary<JsonPropertyInfo> parent, JsonTypeInfo parentTypeInfo, bool isReadOnly)
         {
             _parent = parent;
             _parentTypeInfo = parentTypeInfo;

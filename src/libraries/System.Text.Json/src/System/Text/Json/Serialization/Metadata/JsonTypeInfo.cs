@@ -21,7 +21,7 @@ namespace System.Text.Json.Serialization.Metadata
 
         internal delegate T ParameterizedConstructorDelegate<T, TArg0, TArg1, TArg2, TArg3>(TArg0 arg0, TArg1 arg1, TArg2 arg2, TArg3 arg3);
 
-        private JsonPropertyDictionaryJsonPropertyValueList? _properties;
+        private JsonPropertyInfoDictionaryValueList? _properties;
 
         /// <summary>
         /// Object constructor. If set to null type is not deserializable.
@@ -61,7 +61,7 @@ namespace System.Text.Json.Serialization.Metadata
                 PropertyCache ??= CreatePropertyCache(capacity: 0);
 
                 bool isReadOnly = _isConfigured || Kind != JsonTypeInfoKind.Object;
-                _properties = new JsonPropertyDictionaryJsonPropertyValueList(PropertyCache, this, isReadOnly);
+                _properties = new JsonPropertyInfoDictionaryValueList(PropertyCache, this, isReadOnly);
 
                 return _properties;
             }

@@ -618,11 +618,6 @@ namespace System.Text.Json.Serialization.Metadata
         {
             if (ParentTypeInfo == null)
             {
-                if (parent.Type != DeclaringType)
-                {
-                    ThrowHelper.ThrowInvalidOperationException_JsonPropertyInfoIsBoundToDifferentJsonTypeInfo(this);
-                }
-
                 ParentTypeInfo = parent;
             }
             else if (ParentTypeInfo != parent)
