@@ -316,6 +316,7 @@ namespace System.Text.Json
             using (var writer = new Utf8JsonWriter(bufferWriter, writerOptions))
             {
                 WriteStack state = new WriteStack { CancellationToken = cancellationToken };
+                jsonTypeInfo.Options.VerifyTypeInfoResolverIsSet();
                 jsonTypeInfo.EnsureConfigured();
                 JsonConverter converter = state.Initialize(jsonTypeInfo, supportContinuation: true, supportAsync: true);
 
@@ -390,6 +391,7 @@ namespace System.Text.Json
             using (var writer = new Utf8JsonWriter(bufferWriter, writerOptions))
             {
                 WriteStack state = default;
+                jsonTypeInfo.Options.VerifyTypeInfoResolverIsSet();
                 jsonTypeInfo.EnsureConfigured();
                 JsonConverter converter = state.Initialize(jsonTypeInfo, supportContinuation: true, supportAsync: false);
 
