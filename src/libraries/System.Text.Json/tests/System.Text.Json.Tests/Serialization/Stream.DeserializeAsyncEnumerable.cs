@@ -64,7 +64,8 @@ namespace System.Text.Json.Serialization.Tests
         {
             JsonSerializerOptions options = new JsonSerializerOptions
             {
-                DefaultBufferSize = bufferSize
+                DefaultBufferSize = bufferSize,
+                TypeInfoResolver = new DefaultJsonTypeInfoResolver()
             };
 
             byte[] data = JsonSerializer.SerializeToUtf8Bytes(source);
@@ -82,7 +83,13 @@ namespace System.Text.Json.Serialization.Tests
             string json = JsonSerializer.Serialize(Enumerable.Range(0, 100));
 
             using var stream = new Utf8MemoryStream(json);
-            IAsyncEnumerable<int> asyncEnumerable = DeserializeAsyncEnumerableWrapper<int>(stream, new JsonSerializerOptions { DefaultBufferSize = 1 }, useJsonTypeInfoOverload: useJsonTypeInfoOverload);
+            JsonSerializerOptions options = new JsonSerializerOptions
+            {
+                DefaultBufferSize = 1,
+                TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+            };
+
+            IAsyncEnumerable<int> asyncEnumerable = DeserializeAsyncEnumerableWrapper<int>(stream, options, useJsonTypeInfoOverload: useJsonTypeInfoOverload);
             await using IAsyncEnumerator<int> asyncEnumerator = asyncEnumerable.GetAsyncEnumerator();
 
             for (int i = 0; i < 20; i++)
@@ -102,7 +109,8 @@ namespace System.Text.Json.Serialization.Tests
 
             JsonSerializerOptions options = new JsonSerializerOptions
             {
-                Converters = { new DegenerateQueueConverterFactory() }
+                Converters = { new DegenerateQueueConverterFactory() },
+                TypeInfoResolver = new DefaultJsonTypeInfoResolver()
             };
 
             byte[] data = JsonSerializer.SerializeToUtf8Bytes(Enumerable.Repeat(Enumerable.Repeat(1,3), expectedCount));
@@ -181,7 +189,8 @@ namespace System.Text.Json.Serialization.Tests
         {
             JsonSerializerOptions options = new JsonSerializerOptions
             {
-                DefaultBufferSize = 1
+                DefaultBufferSize = 1,
+                TypeInfoResolver = new DefaultJsonTypeInfoResolver()
             };
 
             byte[] data = JsonSerializer.SerializeToUtf8Bytes(Enumerable.Range(1, 100));
@@ -205,7 +214,8 @@ namespace System.Text.Json.Serialization.Tests
         {
             JsonSerializerOptions options = new JsonSerializerOptions
             {
-                DefaultBufferSize = 1
+                DefaultBufferSize = 1,
+                TypeInfoResolver = new DefaultJsonTypeInfoResolver()
             };
 
             byte[] data = JsonSerializer.SerializeToUtf8Bytes(Enumerable.Range(1, 100));
