@@ -31,6 +31,7 @@ namespace System.Text.Json
             var reader = new Utf8JsonReader(utf8Json, isFinalBlock: true, readerState);
 
             ReadStack state = default;
+            jsonTypeInfo.Options.VerifyTypeInfoResolverIsSet();
             jsonTypeInfo.EnsureConfigured();
             state.Initialize(jsonTypeInfo);
 

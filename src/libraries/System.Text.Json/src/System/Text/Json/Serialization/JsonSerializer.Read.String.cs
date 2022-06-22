@@ -366,6 +366,7 @@ namespace System.Text.Json
 
         private static TValue? ReadFromSpan<TValue>(ReadOnlySpan<char> json, JsonTypeInfo jsonTypeInfo)
         {
+            jsonTypeInfo.Options.VerifyTypeInfoResolverIsSet();
             jsonTypeInfo.EnsureConfigured();
             byte[]? tempArray = null;
 
