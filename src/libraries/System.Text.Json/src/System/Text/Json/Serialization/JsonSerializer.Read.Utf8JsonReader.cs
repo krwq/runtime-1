@@ -239,7 +239,6 @@ namespace System.Text.Json
         private static TValue? Read<TValue>(ref Utf8JsonReader reader, JsonTypeInfo jsonTypeInfo)
         {
             ReadStack state = default;
-            jsonTypeInfo.Options.VerifyTypeInfoResolverIsSet();
             jsonTypeInfo.EnsureConfigured();
             state.Initialize(jsonTypeInfo);
 

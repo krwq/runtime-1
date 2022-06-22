@@ -65,7 +65,7 @@ namespace System.Text.Json.Serialization.Tests
                 IntProp = 42,
             };
 
-            // TODO: reasses if this is expected behavior
+            // TODO: reassess if this is expected behavior
             await Assert.ThrowsAsync<InvalidOperationException>(() => Serializer.SerializeWrapper(obj, ti));
         }
 
@@ -77,7 +77,7 @@ namespace System.Text.Json.Serialization.Tests
             // note: TypeInfoResolver not set
             JsonTypeInfo<SomeClass> ti = (JsonTypeInfo<SomeClass>)r.GetTypeInfo(typeof(SomeClass), o);
 
-            // TODO: reasses if this is expected behavior
+            // TODO: reassess if this is expected behavior
             string json = """{"ObjProp":"test","IntProp":42}""";
             await Assert.ThrowsAsync<InvalidOperationException>(() => Serializer.DeserializeWrapper(json, ti));
         }

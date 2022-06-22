@@ -652,6 +652,19 @@ namespace System.Text.Json
             IsInitializedForReflectionSerializer = true;
         }
 
+        internal bool IsInitializedForMetadataGeneration { get; private set; }
+        internal void InitializeForMetadataGeneration()
+        {
+            IJsonTypeInfoResolver? resolver = _effectiveJsonTypeInfoResolver ?? _typeInfoResolver;
+            if (resolver == null)
+            {
+                ThrowHelper.ThrowInvalidOperationException_JsonTypeInfoUsedButTypeInfoResolverNotSet();
+            }
+
+            _isLockedInstance = true;
+            IsInitializedForMetadataGeneration = true;
+        }
+
         private JsonTypeInfo? GetTypeInfoInternal(Type type)
         {
             IJsonTypeInfoResolver? resolver = _effectiveJsonTypeInfoResolver ?? _typeInfoResolver;
@@ -719,15 +732,6 @@ namespace System.Text.Json
             if (_isLockedInstance)
             {
                 ThrowHelper.ThrowInvalidOperationException_SerializerOptionsImmutable(_typeInfoResolver as JsonSerializerContext);
-            }
-        }
-
-        internal void VerifyTypeInfoResolverIsSet()
-        {
-            IJsonTypeInfoResolver? resolver = _effectiveJsonTypeInfoResolver ?? _typeInfoResolver;
-            if (resolver == null)
-            {
-                ThrowHelper.ThrowInvalidOperationException_JsonTypeInfoUsedButTypeInfoResolverNotSet();
             }
         }
 

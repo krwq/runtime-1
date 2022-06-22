@@ -424,7 +424,6 @@ namespace System.Text.Json
             JsonTypeInfo<Queue<TValue>> queueTypeInfo,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            queueTypeInfo.Options.VerifyTypeInfoResolverIsSet();
             queueTypeInfo.EnsureConfigured();
             JsonSerializerOptions options = queueTypeInfo.Options;
             var bufferState = new ReadBufferState(options.DefaultBufferSize);
@@ -468,7 +467,6 @@ namespace System.Text.Json
             JsonSerializerOptions options = jsonTypeInfo.Options;
             var bufferState = new ReadBufferState(options.DefaultBufferSize);
             ReadStack readStack = default;
-            jsonTypeInfo.Options.VerifyTypeInfoResolverIsSet();
             jsonTypeInfo.EnsureConfigured();
             readStack.Initialize(jsonTypeInfo, supportContinuation: true);
             JsonConverter converter = readStack.Current.JsonPropertyInfo!.EffectiveConverter;
@@ -500,7 +498,6 @@ namespace System.Text.Json
             JsonSerializerOptions options = jsonTypeInfo.Options;
             var bufferState = new ReadBufferState(options.DefaultBufferSize);
             ReadStack readStack = default;
-            jsonTypeInfo.Options.VerifyTypeInfoResolverIsSet();
             jsonTypeInfo.EnsureConfigured();
             readStack.Initialize(jsonTypeInfo, supportContinuation: true);
             JsonConverter converter = readStack.Current.JsonPropertyInfo!.EffectiveConverter;
