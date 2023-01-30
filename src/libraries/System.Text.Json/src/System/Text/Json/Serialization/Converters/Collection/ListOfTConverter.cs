@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace System.Text.Json.Serialization.Converters
 {
@@ -17,6 +18,13 @@ namespace System.Text.Json.Serialization.Converters
 
         protected override void CreateCollection(ref Utf8JsonReader reader, scoped ref ReadStack state, JsonSerializerOptions options)
         {
+            Debug.Assert(state.Current.ParentProperty != null, "state.Current.ParentProperty is null");
+            Debug.Assert(!state.Current.ParentProperty.IsForTypeInfo, "ParentProperty is for type info");
+            if (state.Current.ParentProperty.TryPopulate(ref state))
+            {
+                return;
+            }
+
             if (state.Current.JsonTypeInfo.CreateObject == null)
             {
                 ThrowHelper.ThrowNotSupportedException_SerializationNotSupported(state.Current.JsonTypeInfo.Type);

@@ -336,6 +336,11 @@ namespace System.Text.Json.Serialization.Metadata
             bool success;
 
             bool isNullToken = reader.TokenType == JsonTokenType.Null;
+            if (isNullToken && CreationHandling == JsonObjectCreationHandling.Populate)
+            {
+                throw new InvalidOperationException($"Property `{Name}` has CreationHandling set to Populate but null is provided.");
+            }
+
             if (isNullToken && !EffectiveConverter.HandleNullOnRead && !state.IsContinuation)
             {
                 if (default(T) is not null)
@@ -356,6 +361,7 @@ namespace System.Text.Json.Serialization.Metadata
             {
                 // CanUseDirectReadOrWrite == false when using streams
                 Debug.Assert(!state.IsContinuation);
+                Debug.Assert(CreationHandling != JsonObjectCreationHandling.Populate, "Populating should not be possible for simple types");
 
                 if (!isNullToken || !IgnoreNullTokensOnRead || default(T) is not null)
                 {
@@ -372,10 +378,15 @@ namespace System.Text.Json.Serialization.Metadata
                 success = true;
                 if (!isNullToken || !IgnoreNullTokensOnRead || default(T) is not null || state.IsContinuation)
                 {
+                    state.Current.ReturnValue = obj;
                     success = EffectiveConverter.TryRead(ref reader, PropertyType, Options, ref state, out T? value);
                     if (success)
                     {
-                        Set!(obj, value!);
+                        if (default(T) is not null || CreationHandling != JsonObjectCreationHandling.Populate)
+                        {
+                            Set!(obj, value!);
+                        }
+
                         state.Current.MarkRequiredPropertyAsRead(this);
                     }
                 }

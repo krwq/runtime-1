@@ -419,7 +419,7 @@ namespace System.Text.Json.Serialization.Converters
             bool useExtensionProperty)
         {
             // Skip the property if not found.
-            if (!jsonPropertyInfo.CanDeserialize)
+            if (!jsonPropertyInfo.CanDeserializeOrPopulate)
             {
                 reader.Skip();
             }

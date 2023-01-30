@@ -423,6 +423,7 @@ namespace System.Text.Json.Serialization.Metadata
 
             CanSerialize = HasGetter;
             CanDeserialize = HasSetter;
+            CanDeserializeOrPopulate = CanDeserialize || CreationHandling == JsonObjectCreationHandling.Populate;
 
             Debug.Assert(MemberType is 0 or MemberTypes.Field or MemberTypes.Property);
             if (MemberType == 0 || _ignoreCondition != null)
@@ -611,6 +612,7 @@ namespace System.Text.Json.Serialization.Metadata
 
             IgnoreCondition = ignoreCondition;
             IsExtensionData = memberInfo.GetCustomAttribute<JsonExtensionDataAttribute>(inherit: false) != null;
+            CreationHandling = memberInfo.GetCustomAttribute<JsonObjectCreationHandlingAttribute>(inherit: false)?.Handling ?? JsonObjectCreationHandling.Replace;
         }
 
         internal bool IgnoreNullTokensOnRead { get; private protected set; }
@@ -801,6 +803,16 @@ namespace System.Text.Json.Serialization.Metadata
             }
         }
 
+        internal bool TryPopulate(scoped ref ReadStack state)
+        {
+            if (CreationHandling != JsonObjectCreationHandling.Populate)
+                return false;
+
+            Debug.Assert(state.Current.ParentObject != null, "Parent object is null");
+            state.Current.ReturnValue = Get!(state.Current.ParentObject);
+            return true;
+        }
+
         internal Type DeclaringType { get; }
 
         [AllowNull]
@@ -831,6 +843,11 @@ namespace System.Text.Json.Serialization.Metadata
         /// Reflects the value of <see cref="HasSetter"/> combined with any additional global ignore policies.
         /// </summary>
         internal bool CanDeserialize { get; private set; }
+
+        /// <summary>
+        /// Reflects the value can be deserialized or populated
+        /// </summary>
+        internal bool CanDeserializeOrPopulate { get; private set; }
 
         /// <summary>
         /// Relevant to source generated metadata: did the property have the <see cref="JsonIncludeAttribute"/>?

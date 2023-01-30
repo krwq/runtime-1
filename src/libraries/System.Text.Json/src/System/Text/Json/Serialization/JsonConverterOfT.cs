@@ -248,6 +248,9 @@ namespace System.Text.Json.Serialization
                 return true;
             }
 
+            JsonPropertyInfo? propertyInfo = state.Current.JsonPropertyInfo;
+            object? parentObj = state.Current.ReturnValue;
+
             Debug.Assert(IsInternalConverter);
             bool isContinuation = state.IsContinuation;
             bool success;
@@ -284,6 +287,8 @@ namespace System.Text.Json.Serialization
                 state.Current.OriginalDepth = reader.CurrentDepth;
             }
 #endif
+            state.Current.ParentObject = parentObj;
+            state.Current.ParentProperty = propertyInfo;
             success = OnTryRead(ref reader, typeToConvert, options, ref state, out value);
 #if DEBUG
             if (success)
