@@ -173,6 +173,22 @@ namespace System.Text.Json.Serialization.Metadata
             }
         }
 
+        private JsonObjectCreationHandling _creationHandling;
+
+        /// <summary>
+        /// Gets of sets a value indicating if member will be replaced or populated during deserialization.
+        /// </summary>
+        public JsonObjectCreationHandling CreationHandling
+        {
+            get => _creationHandling;
+            set
+            {
+                VerifyMutable();
+
+                _creationHandling = value;
+            }
+        }
+
         private ICustomAttributeProvider? _attributeProvider;
         internal string? MemberName { get; private protected set; }
         internal MemberTypes MemberType { get; private protected set; }
