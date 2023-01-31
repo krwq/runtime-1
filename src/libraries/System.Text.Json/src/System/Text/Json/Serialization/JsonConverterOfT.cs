@@ -287,8 +287,13 @@ namespace System.Text.Json.Serialization
                 state.Current.OriginalDepth = reader.CurrentDepth;
             }
 #endif
-            state.Current.ParentObject = parentObj;
-            state.Current.ParentProperty = propertyInfo;
+
+            if (parentObj != null && propertyInfo != null && !propertyInfo.IsForTypeInfo)
+            {
+                state.Current.ParentObject = parentObj;
+                state.Current.ParentProperty = propertyInfo;
+            }
+
             success = OnTryRead(ref reader, typeToConvert, options, ref state, out value);
 #if DEBUG
             if (success)

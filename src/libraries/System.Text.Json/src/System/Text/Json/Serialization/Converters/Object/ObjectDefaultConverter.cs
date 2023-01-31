@@ -203,7 +203,7 @@ namespace System.Text.Json.Serialization.Converters
 
                     if (state.Current.PropertyState < StackFramePropertyState.ReadValue)
                     {
-                        if (!jsonPropertyInfo.CanDeserialize)
+                        if (!jsonPropertyInfo.CanDeserializeOrPopulate)
                         {
                             if (!reader.TrySkip())
                             {

@@ -18,9 +18,7 @@ namespace System.Text.Json.Serialization.Converters
 
         protected override void CreateCollection(ref Utf8JsonReader reader, scoped ref ReadStack state, JsonSerializerOptions options)
         {
-            Debug.Assert(state.Current.ParentProperty != null, "state.Current.ParentProperty is null");
-            Debug.Assert(!state.Current.ParentProperty.IsForTypeInfo, "ParentProperty is for type info");
-            if (state.Current.ParentProperty.TryPopulate(ref state))
+            if (state.Current.ParentProperty?.TryPopulate(ref state) == true)
             {
                 return;
             }

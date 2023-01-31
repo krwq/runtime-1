@@ -423,7 +423,6 @@ namespace System.Text.Json.Serialization.Metadata
 
             CanSerialize = HasGetter;
             CanDeserialize = HasSetter;
-            CanDeserializeOrPopulate = CanDeserialize || CreationHandling == JsonObjectCreationHandling.Populate;
 
             Debug.Assert(MemberType is 0 or MemberTypes.Field or MemberTypes.Property);
             if (MemberType == 0 || _ignoreCondition != null)
@@ -431,6 +430,7 @@ namespace System.Text.Json.Serialization.Metadata
                 // No policy to be applied if either:
                 // 1. JsonPropertyInfo is a custom instance (not generated via reflection or sourcegen).
                 // 2. A JsonIgnoreCondition has been specified on the property level.
+                CanDeserializeOrPopulate = CanDeserialize || CreationHandling == JsonObjectCreationHandling.Populate;
                 return;
             }
 
@@ -451,6 +451,8 @@ namespace System.Text.Json.Serialization.Metadata
                     CanSerialize = false;
                 }
             }
+
+            CanDeserializeOrPopulate = CanDeserialize || CreationHandling == JsonObjectCreationHandling.Populate;
         }
 
         private void DetermineNumberHandlingForTypeInfo()
