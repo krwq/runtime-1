@@ -17,6 +17,11 @@ namespace System.Text.Json.Serialization.Converters
 
         protected override void CreateCollection(ref Utf8JsonReader reader, scoped ref ReadStack state, JsonSerializerOptions options)
         {
+            if (state.Current.ParentProperty?.TryPopulate(ref state) == true)
+            {
+                return;
+            }
+
             if (state.Current.JsonTypeInfo.CreateObject == null)
             {
                 ThrowHelper.ThrowNotSupportedException_SerializationNotSupported(state.Current.JsonTypeInfo.Type);

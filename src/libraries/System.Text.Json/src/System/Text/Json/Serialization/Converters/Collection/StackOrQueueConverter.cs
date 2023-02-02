@@ -20,6 +20,11 @@ namespace System.Text.Json.Serialization.Converters
 
         protected sealed override void CreateCollection(ref Utf8JsonReader reader, scoped ref ReadStack state, JsonSerializerOptions options)
         {
+            if (state.Current.ParentProperty?.TryPopulate(ref state) == true)
+            {
+                return;
+            }
+
             JsonTypeInfo typeInfo = state.Current.JsonTypeInfo;
             Func<object>? constructorDelegate = typeInfo.CreateObject;
 
