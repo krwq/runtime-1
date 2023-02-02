@@ -384,6 +384,7 @@ namespace System.Text.Json.Serialization.Metadata
                     {
                         if (default(T) is not null || CreationHandling != JsonObjectCreationHandling.Populate)
                         {
+                            Debug.Assert(Set != null, "This case should have been validated in JsonPropertyInfo.Configure");
                             Set!(obj, value!);
                         }
 
