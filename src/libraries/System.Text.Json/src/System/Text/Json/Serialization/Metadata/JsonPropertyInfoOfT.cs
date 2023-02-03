@@ -382,7 +382,7 @@ namespace System.Text.Json.Serialization.Metadata
                     success = EffectiveConverter.TryRead(ref reader, PropertyType, Options, ref state, out T? value);
                     if (success)
                     {
-                        if (default(T) is not null || CreationHandling != JsonObjectCreationHandling.Populate)
+                        if (typeof(T).IsValueType || CreationHandling != JsonObjectCreationHandling.Populate)
                         {
                             Debug.Assert(Set != null, "This case should have been validated in JsonPropertyInfo.Configure");
                             Set!(obj, value!);

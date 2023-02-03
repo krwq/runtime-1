@@ -21,6 +21,7 @@ namespace System.Text.Json.Serialization.Tests;
 // - deserialize null on property which is supposed to be populated
 // - validate value types have setter
 // - null values (reading, initially set to null)
+// - F#
 public class JsonCreationHandlingTests_String : JsonCreationHandlingTests
 {
     public JsonCreationHandlingTests_String() : base(JsonSerializerWrapper.StringSerializer) { }
@@ -433,6 +434,21 @@ public abstract class JsonCreationHandlingTests : SerializerTests
     }
 
     [Fact]
+    public async Task CreationHandlingSetWithAttribute_CanPopulate_NullableStructListOfInt()
+    {
+        string json = """{"Property":[4,5,6]}""";
+        var obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty_NullableStructListOfInt>(json);
+        Assert.Equal(Enumerable.Range(1, 6), obj.Property.Value);
+        obj.Property.Value.Validate();
+    }
+
+    internal class ClassWithReadOnlyProperty_NullableStructListOfInt
+    {
+        [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+        public StructList<int>? Property { get; set; } = new StructList<int>() { 1, 2, 3 };
+    }
+
+    [Fact]
     public async Task CreationHandlingSetWithAttribute_CanPopulate_QueueOfInt()
     {
         string json = """{"Property":[4,5,6]}""";
@@ -668,6 +684,21 @@ public abstract class JsonCreationHandlingTests : SerializerTests
     }
 
     [Fact]
+    public async Task CreationHandlingSetWithAttribute_CanPopulate_NullableStructCollectionOfInt()
+    {
+        string json = """{"Property":[4,5,6]}""";
+        var obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty_NullableStructCollectionOfInt>(json);
+        Assert.Equal(Enumerable.Range(1, 6), obj.Property.Value);
+        obj.Property.Value.Validate();
+    }
+
+    internal class ClassWithReadOnlyProperty_NullableStructCollectionOfInt
+    {
+        [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+        public StructCollection<int>? Property { get; set; } = new StructCollection<int>() { 1, 2, 3 };
+    }
+
+    [Fact]
     public async Task CreationHandlingSetWithAttribute_CanPopulate_ISetOfInt_BackedBy_HashSetOfInt()
     {
         string json = """{"Property":[4,5,6]}""";
@@ -756,5 +787,20 @@ public abstract class JsonCreationHandlingTests : SerializerTests
         [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
         [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)]
         public StructSet<int> Property { get; set; } = new StructSet<int>() { 1, 2, 3 };
+    }
+
+    [Fact]
+    public async Task CreationHandlingSetWithAttribute_CanPopulate_NullableStructSetOfInt()
+    {
+        string json = """{"Property":[4,5,6]}""";
+        var obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty_NullableStructSetOfInt>(json);
+        Assert.Equal(Enumerable.Range(1, 6), obj.Property.Value);
+        obj.Property.Value.Validate();
+    }
+
+    internal class ClassWithReadOnlyProperty_NullableStructSetOfInt
+    {
+        [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+        public StructSet<int>? Property { get; set; } = new StructSet<int>() { 1, 2, 3 };
     }
 }
