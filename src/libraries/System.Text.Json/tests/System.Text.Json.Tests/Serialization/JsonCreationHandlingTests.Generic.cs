@@ -315,6 +315,24 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
         Assert.Throws<InvalidOperationException>(() => options.GetTypeInfo(type));
     }
 
+    private static void CheckDictionaryContent(IDictionary<string, int> dict)
+    {
+        Assert.Equal(6, dict.Count);
+        Assert.True(dict.ContainsKey("a"), "Dictionary does not contain 'a' key.");
+        Assert.True(dict.ContainsKey("b"), "Dictionary does not contain 'b' key.");
+        Assert.True(dict.ContainsKey("c"), "Dictionary does not contain 'c' key.");
+        Assert.True(dict.ContainsKey("d"), "Dictionary does not contain 'd' key.");
+        Assert.True(dict.ContainsKey("e"), "Dictionary does not contain 'e' key.");
+        Assert.True(dict.ContainsKey("f"), "Dictionary does not contain 'f' key.");
+
+        Assert.Equal(1, dict["a"]);
+        Assert.Equal(2, dict["b"]);
+        Assert.Equal(3, dict["c"]);
+        Assert.Equal(4, dict["d"]);
+        Assert.Equal(5, dict["e"]);
+        Assert.Equal(6, dict["f"]);
+    }
+
     internal class ClassWithReadOnlyProperty<T>
     {
         [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
