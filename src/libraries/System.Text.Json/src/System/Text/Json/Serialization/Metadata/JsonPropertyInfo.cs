@@ -338,6 +338,24 @@ namespace System.Text.Json.Serialization.Metadata
 
                 Debug.Assert(!IgnoreNullTokensOnRead);
             }
+
+            if (CreationHandling == JsonObjectCreationHandling.Populate)
+            {
+                if (!EffectiveConverter.CanPopulate)
+                {
+                    throw new InvalidOperationException("Property is marked with JsonObjectCreationHandling.Populate but it uses converter which doesn't support populating.");
+                }
+
+                if (Get == null)
+                {
+                    throw new InvalidOperationException("Populated properties must have a getter");
+                }
+
+                if (PropertyType.IsValueType && Set == null)
+                {
+                    throw new InvalidOperationException("Populated properties which type is a value type must have a setter");
+                }
+            }
         }
 
         private protected abstract void DetermineEffectiveConverter(JsonTypeInfo jsonTypeInfo);
@@ -810,9 +828,11 @@ namespace System.Text.Json.Serialization.Metadata
             if (CreationHandling != JsonObjectCreationHandling.Populate)
                 return false;
 
+            Debug.Assert(EffectiveConverter.CanPopulate, "Property is marked with Populate but converter cannot populate. This should have been validated in Configure");
             Debug.Assert(state.Current.ParentObject != null, "Parent object is null");
-            state.Current.ReturnValue = Get!(state.Current.ParentObject);
-            return true;
+            object? value = Get!(state.Current.ParentObject);
+            state.Current.ReturnValue = value;
+            return value != null;
         }
 
         internal Type DeclaringType { get; }

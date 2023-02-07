@@ -9,6 +9,7 @@ namespace System.Text.Json.Serialization.Converters
     {
         internal override Type? ElementType => typeof(T);
         public override bool HandleNull => true;
+        internal override bool CanPopulate => _elementConverter.CanPopulate;
 
         // It is possible to cache the underlying converter since this is an internal converter and
         // an instance is created only once for each JsonSerializerOptions instance.
