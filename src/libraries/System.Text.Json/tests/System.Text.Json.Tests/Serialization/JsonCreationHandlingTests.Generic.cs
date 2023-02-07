@@ -6,6 +6,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text.Json.Serialization.Metadata;
 using System.Threading.Tasks;
@@ -19,7 +20,6 @@ namespace System.Text.Json.Serialization.Tests;
 // - incompatible options
 // - put Populate on property with null value
 // - deserialize null on property which is supposed to be populated
-// - validate value types have setter
 // - null values (reading, initially set to null)
 // - F#
 // - parametrized ctor
@@ -281,6 +281,31 @@ internal struct StructSet<T> : ISet<T>
     }
 }
 
+//internal struct StructDictionary<TKey, TValue> : IDictionary<TKey, TValue>
+//{
+//    public TValue this[TKey key] { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
+//    public ICollection<TKey> Keys => throw new NotImplementedException();
+
+//    public ICollection<TValue> Values => throw new NotImplementedException();
+
+//    public int Count => throw new NotImplementedException();
+
+//    public bool IsReadOnly => throw new NotImplementedException();
+
+//    public void Add(TKey key, TValue value) => throw new NotImplementedException();
+//    public void Add(KeyValuePair<TKey, TValue> item) => throw new NotImplementedException();
+//    public void Clear() => throw new NotImplementedException();
+//    public bool Contains(KeyValuePair<TKey, TValue> item) => throw new NotImplementedException();
+//    public bool ContainsKey(TKey key) => throw new NotImplementedException();
+//    public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex) => throw new NotImplementedException();
+//    public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => throw new NotImplementedException();
+//    public bool Remove(TKey key) => throw new NotImplementedException();
+//    public bool Remove(KeyValuePair<TKey, TValue> item) => throw new NotImplementedException();
+//    public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) => throw new NotImplementedException();
+//    IEnumerator IEnumerable.GetEnumerator() => throw new NotImplementedException();
+//}
+
 public abstract partial class JsonCreationHandlingTests : SerializerTests
 {
     public JsonCreationHandlingTests(JsonSerializerWrapper serializerUnderTest) : base(serializerUnderTest)
@@ -315,7 +340,7 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
         Assert.Throws<InvalidOperationException>(() => options.GetTypeInfo(type));
     }
 
-    private static void CheckDictionaryContent(IDictionary<string, int> dict)
+    private static void CheckGenericDictionaryContent(IDictionary<string, int> dict)
     {
         Assert.Equal(6, dict.Count);
         Assert.True(dict.ContainsKey("a"), "Dictionary does not contain 'a' key.");
@@ -331,6 +356,24 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
         Assert.Equal(4, dict["d"]);
         Assert.Equal(5, dict["e"]);
         Assert.Equal(6, dict["f"]);
+    }
+
+    private static void CheckDictionaryContent(IDictionary dict)
+    {
+        Assert.Equal(6, dict.Count);
+        Assert.True(dict.Contains("a"), "Dictionary does not contain 'a' key.");
+        Assert.True(dict.Contains("b"), "Dictionary does not contain 'b' key.");
+        Assert.True(dict.Contains("c"), "Dictionary does not contain 'c' key.");
+        Assert.True(dict.Contains("d"), "Dictionary does not contain 'd' key.");
+        Assert.True(dict.Contains("e"), "Dictionary does not contain 'e' key.");
+        Assert.True(dict.Contains("f"), "Dictionary does not contain 'f' key.");
+
+        Assert.Equal(1, ((JsonElement)dict["a"]).GetInt32());
+        Assert.Equal(2, ((JsonElement)dict["b"]).GetInt32());
+        Assert.Equal(3, ((JsonElement)dict["c"]).GetInt32());
+        Assert.Equal(4, ((JsonElement)dict["d"]).GetInt32());
+        Assert.Equal(5, ((JsonElement)dict["e"]).GetInt32());
+        Assert.Equal(6, ((JsonElement)dict["f"]).GetInt32());
     }
 
     internal class ClassWithReadOnlyProperty<T>
