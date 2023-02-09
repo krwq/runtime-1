@@ -281,30 +281,103 @@ internal struct StructSet<T> : ISet<T>
     }
 }
 
-//internal struct StructDictionary<TKey, TValue> : IDictionary<TKey, TValue>
-//{
-//    public TValue this[TKey key] { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+internal struct StructDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDictionary
+{
+    private Dictionary<TKey, TValue> _dict = new();
 
-//    public ICollection<TKey> Keys => throw new NotImplementedException();
+    // we track count separately to make sure tests are not passing by accident because we use reference to list inside of struct
+    private int _count;
 
-//    public ICollection<TValue> Values => throw new NotImplementedException();
+    public StructDictionary() { }
 
-//    public int Count => throw new NotImplementedException();
+    public TValue this[TKey key]
+    {
+        get => _dict[key];
+        set
+        {
+            int prevCount = _dict.Count;
+            _dict[key] = value;
+            _count += _dict.Count - prevCount;
+        }
+    }
 
-//    public bool IsReadOnly => throw new NotImplementedException();
+    public ICollection<TKey> Keys => _dict.Keys;
 
-//    public void Add(TKey key, TValue value) => throw new NotImplementedException();
-//    public void Add(KeyValuePair<TKey, TValue> item) => throw new NotImplementedException();
-//    public void Clear() => throw new NotImplementedException();
-//    public bool Contains(KeyValuePair<TKey, TValue> item) => throw new NotImplementedException();
-//    public bool ContainsKey(TKey key) => throw new NotImplementedException();
-//    public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex) => throw new NotImplementedException();
-//    public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => throw new NotImplementedException();
-//    public bool Remove(TKey key) => throw new NotImplementedException();
-//    public bool Remove(KeyValuePair<TKey, TValue> item) => throw new NotImplementedException();
-//    public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) => throw new NotImplementedException();
-//    IEnumerator IEnumerable.GetEnumerator() => throw new NotImplementedException();
-//}
+    public ICollection<TValue> Values => _dict.Values;
+
+    public int Count => _count;
+
+    public bool IsReadOnly => false;
+
+    public bool IsFixedSize => false;
+
+    ICollection IDictionary.Keys => ((IDictionary)_dict).Keys;
+
+    ICollection IDictionary.Values => ((IDictionary)_dict).Values;
+
+    public bool IsSynchronized => false;
+
+    public object SyncRoot => this;
+
+    public object? this[object key] { get => this[(TKey)key]; set => this[(TKey)key] = (TValue)value; }
+
+    public void Add(TKey key, TValue value)
+    {
+        int prevCount = _dict.Count;
+        _dict.Add(key, value);
+        _count += _dict.Count - prevCount;
+    }
+
+    public void Add(KeyValuePair<TKey, TValue> item)
+    {
+        int prevCount = _dict.Count;
+        ((ICollection<KeyValuePair<TKey, TValue>>)_dict).Add(item);
+        _count += _dict.Count - prevCount;
+    }
+
+    public void Clear()
+    {
+        _dict.Clear();
+        _count = 0;
+    }
+
+    public bool Contains(KeyValuePair<TKey, TValue> item) => _dict.Contains(item);
+    public bool ContainsKey(TKey key) => _dict.ContainsKey(key);
+    public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex) => ((ICollection<KeyValuePair<TKey, TValue>>)_dict).CopyTo(array, arrayIndex);
+    public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => _dict.GetEnumerator();
+
+    public bool Remove(TKey key)
+    {
+        int prevCount = _dict.Count;
+        bool ret = _dict.Remove(key);
+        _count -= prevCount - _dict.Count;
+        return ret;
+    }
+
+    public bool Remove(KeyValuePair<TKey, TValue> item)
+    {
+        int prevCount = _dict.Count;
+        bool ret = ((ICollection<KeyValuePair<TKey, TValue>>)_dict).Remove(item);
+        _count -= prevCount - _dict.Count;
+        return ret;
+    }
+
+    public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) => _dict.TryGetValue(key, out value);
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public void Add(object key, object? value) => Add((TKey)key, (TValue)value);
+    public bool Contains(object key) => ContainsKey((TKey)key);
+    IDictionaryEnumerator IDictionary.GetEnumerator() => ((IDictionary)_dict).GetEnumerator();
+    public void Remove(object key) => Remove((TKey)key);
+    public void CopyTo(Array array, int index) => ((IDictionary)_dict).CopyTo(array, index);
+
+    public void Validate()
+    {
+        // This can fail only if we modified a copy of this struct
+        Assert.Equal(_count, _dict.Count);
+    }
+}
 
 public abstract partial class JsonCreationHandlingTests : SerializerTests
 {
