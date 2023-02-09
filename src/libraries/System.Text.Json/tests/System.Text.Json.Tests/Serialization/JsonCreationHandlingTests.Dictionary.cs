@@ -31,12 +31,14 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
     public async Task CreationHandlingSetWithAttribute_CanPopulate_DictionaryOfStringToInt_WithNumberHandling()
     {
         string json = """{"Property":{"d":"4","e":"5","f":"6"}}""";
-        var obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty_DictionaryOfStringToIntWithNumberHandling>(json);
+        var obj = await Serializer.DeserializeWrapper<StructWithReadOnlyProperty_DictionaryOfStringToIntWithNumberHandling>(json);
         CheckGenericDictionaryContent(obj.Property);
     }
 
-    internal class ClassWithReadOnlyProperty_DictionaryOfStringToIntWithNumberHandling
+    internal struct StructWithReadOnlyProperty_DictionaryOfStringToIntWithNumberHandling
     {
+        public StructWithReadOnlyProperty_DictionaryOfStringToIntWithNumberHandling() {}
+
         [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
         [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)]
         public Dictionary<string, int> Property { get; } = new Dictionary<string, int>() { ["a"] = 1, ["b"] = 2, ["c"] = 3 };
@@ -46,12 +48,14 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
     public async Task CreationHandlingSetWithAttribute_CanPopulate_IDictionaryOfStringToInt_BackedBy_DictionaryOfStringToInt()
     {
         string json = """{"Property":{"d":4,"e":5,"f":6}}""";
-        var obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty_IDictionaryOfStringToInt_BackedBy_DictionaryOfStringToInt>(json);
+        var obj = await Serializer.DeserializeWrapper<StructWithReadOnlyProperty_IDictionaryOfStringToInt_BackedBy_DictionaryOfStringToInt>(json);
         CheckGenericDictionaryContent(obj.Property);
     }
 
-    internal class ClassWithReadOnlyProperty_IDictionaryOfStringToInt_BackedBy_DictionaryOfStringToInt
+    internal struct StructWithReadOnlyProperty_IDictionaryOfStringToInt_BackedBy_DictionaryOfStringToInt
     {
+        public StructWithReadOnlyProperty_IDictionaryOfStringToInt_BackedBy_DictionaryOfStringToInt() {}
+
         [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
         public IDictionary<string, int> Property { get; } = new Dictionary<string, int>() { ["a"] = 1, ["b"] = 2, ["c"] = 3 };
     }
@@ -90,13 +94,15 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
     public async Task CreationHandlingSetWithAttribute_CanPopulate_IDictionaryOfStringToInt_BackedBy_StructDictionaryOfStringToInt_WithNumberHandling()
     {
         string json = """{"Property":{"d":"4","e":"5","f":"6"}}""";
-        var obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty_IDictionaryOfStringToInt_BackedBy_StructDictionaryOfStringToIntWithNumberHandling>(json);
+        var obj = await Serializer.DeserializeWrapper<StructWithReadOnlyProperty_IDictionaryOfStringToInt_BackedBy_StructDictionaryOfStringToIntWithNumberHandling>(json);
         CheckGenericDictionaryContent(obj.Property);
         ((StructDictionary<string, int>)obj.Property).Validate();
     }
 
-    internal class ClassWithReadOnlyProperty_IDictionaryOfStringToInt_BackedBy_StructDictionaryOfStringToIntWithNumberHandling
+    internal struct StructWithReadOnlyProperty_IDictionaryOfStringToInt_BackedBy_StructDictionaryOfStringToIntWithNumberHandling
     {
+        public StructWithReadOnlyProperty_IDictionaryOfStringToInt_BackedBy_StructDictionaryOfStringToIntWithNumberHandling() {}
+
         [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
         [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)]
         public IDictionary<string, int> Property { get; } = new StructDictionary<string, int>() { ["a"] = 1, ["b"] = 2, ["c"] = 3 };
@@ -106,12 +112,14 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
     public async Task CreationHandlingSetWithAttribute_CanPopulate_IDictionary_BackedBy_DictionaryOfStringToJsonElement()
     {
         string json = """{"Property":{"d":4,"e":5,"f":6}}""";
-        var obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty_IDictionary_BackedBy_DictionaryOfStringToJsonElement>(json);
+        var obj = await Serializer.DeserializeWrapper<StructWithReadOnlyProperty_IDictionary_BackedBy_DictionaryOfStringToJsonElement>(json);
         CheckDictionaryContent(obj.Property);
     }
 
-    internal class ClassWithReadOnlyProperty_IDictionary_BackedBy_DictionaryOfStringToJsonElement
+    internal struct StructWithReadOnlyProperty_IDictionary_BackedBy_DictionaryOfStringToJsonElement
     {
+        public StructWithReadOnlyProperty_IDictionary_BackedBy_DictionaryOfStringToJsonElement() {}
+
         [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
         public IDictionary Property { get; } = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>("""{"a":1,"b":2,"c":3}""");
     }
@@ -150,13 +158,15 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
     public async Task CreationHandlingSetWithAttribute_CanPopulate_StructDictionaryOfStringToInt_WithNumberHandling()
     {
         string json = """{"Property":{"d":"4","e":"5","f":"6"}}""";
-        var obj = await Serializer.DeserializeWrapper<ClassWithWritableProperty_StructDictionaryOfStringToIntWithNumberHandling>(json);
+        var obj = await Serializer.DeserializeWrapper<StructWithWritableProperty_StructDictionaryOfStringToIntWithNumberHandling>(json);
         CheckGenericDictionaryContent(obj.Property);
         obj.Property.Validate();
     }
 
-    internal class ClassWithWritableProperty_StructDictionaryOfStringToIntWithNumberHandling
+    internal struct StructWithWritableProperty_StructDictionaryOfStringToIntWithNumberHandling
     {
+        public StructWithWritableProperty_StructDictionaryOfStringToIntWithNumberHandling() {}
+
         [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
         [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)]
         public StructDictionary<string, int> Property { get; set; } = new StructDictionary<string, int>() { ["a"] = 1, ["b"] = 2, ["c"] = 3 };
@@ -166,12 +176,14 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
     public async Task CreationHandlingSetWithAttribute_CanPopulate_ConcurrentDictionaryOfStringToInt()
     {
         string json = """{"Property":{"d":4,"e":5,"f":6}}""";
-        var obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty_ConcurrentDictionaryOfStringToInt>(json);
+        var obj = await Serializer.DeserializeWrapper<StructWithReadOnlyProperty_ConcurrentDictionaryOfStringToInt>(json);
         CheckGenericDictionaryContent(obj.Property);
     }
 
-    internal class ClassWithReadOnlyProperty_ConcurrentDictionaryOfStringToInt
+    internal struct StructWithReadOnlyProperty_ConcurrentDictionaryOfStringToInt
     {
+        public StructWithReadOnlyProperty_ConcurrentDictionaryOfStringToInt() {}
+
         [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
         public ConcurrentDictionary<string, int> Property { get; } = new ConcurrentDictionary<string, int>() { ["a"] = 1, ["b"] = 2, ["c"] = 3 };
     }
@@ -209,12 +221,14 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
     public async Task CreationHandlingSetWithAttribute_CanPopulate_SortedDictionaryOfStringToInt_WithNumberHandling()
     {
         string json = """{"Property":{"d":"4","e":"5","f":"6"}}""";
-        var obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty_SortedDictionaryOfStringToIntWithNumberHandling>(json);
+        var obj = await Serializer.DeserializeWrapper<StructWithReadOnlyProperty_SortedDictionaryOfStringToIntWithNumberHandling>(json);
         CheckGenericDictionaryContent(obj.Property);
     }
 
-    internal class ClassWithReadOnlyProperty_SortedDictionaryOfStringToIntWithNumberHandling
+    internal struct StructWithReadOnlyProperty_SortedDictionaryOfStringToIntWithNumberHandling
     {
+        public StructWithReadOnlyProperty_SortedDictionaryOfStringToIntWithNumberHandling() {}
+
         [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
         [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)]
         public SortedDictionary<string, int> Property { get; } = new SortedDictionary<string, int>() { ["a"] = 1, ["b"] = 2, ["c"] = 3 };
