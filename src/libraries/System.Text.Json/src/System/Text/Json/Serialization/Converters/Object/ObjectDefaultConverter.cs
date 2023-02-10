@@ -32,12 +32,19 @@ namespace System.Text.Json.Serialization.Converters
                     ThrowHelper.ThrowJsonException_DeserializeUnableToConvertValue(TypeToConvert);
                 }
 
-                if (jsonTypeInfo.CreateObject == null)
+                if (state.Current.ParentProperty?.TryPopulate(ref state) == true)
                 {
-                    ThrowHelper.ThrowNotSupportedException_DeserializeNoConstructor(jsonTypeInfo.Type, ref reader, ref state);
+                    obj = state.Current.ReturnValue!;
                 }
+                else
+                {
+                    if (jsonTypeInfo.CreateObject == null)
+                    {
+                        ThrowHelper.ThrowNotSupportedException_DeserializeNoConstructor(jsonTypeInfo.Type, ref reader, ref state);
+                    }
 
-                obj = jsonTypeInfo.CreateObject()!;
+                    obj = jsonTypeInfo.CreateObject()!;
+                }
 
                 jsonTypeInfo.OnDeserializing?.Invoke(obj);
                 state.Current.InitializeRequiredPropertiesValidationState(jsonTypeInfo);
@@ -126,12 +133,19 @@ namespace System.Text.Json.Serialization.Converters
                         return true;
                     }
 
-                    if (jsonTypeInfo.CreateObject == null)
+                    if (state.Current.ParentProperty?.TryPopulate(ref state) == true)
                     {
-                        ThrowHelper.ThrowNotSupportedException_DeserializeNoConstructor(jsonTypeInfo.Type, ref reader, ref state);
+                        obj = state.Current.ReturnValue!;
                     }
+                    else
+                    {
+                        if (jsonTypeInfo.CreateObject == null)
+                        {
+                            ThrowHelper.ThrowNotSupportedException_DeserializeNoConstructor(jsonTypeInfo.Type, ref reader, ref state);
+                        }
 
-                    obj = jsonTypeInfo.CreateObject()!;
+                        obj = jsonTypeInfo.CreateObject()!;
+                    }
 
                     if (state.Current.MetadataPropertyNames.HasFlag(MetadataPropertyName.Id))
                     {

@@ -26,6 +26,8 @@ namespace System.Text.Json.Serialization.Tests;
 // - TODO: replace error messages with resource strings
 // - CreationHandlingSetWithAttribute_PopulateWithInvalidTypeThrows: dictionary, parametrized ctor
 // - same property ocurring multiple times in the payload
+// - required properties
+// - callbacks
 public sealed partial class JsonCreationHandlingTests_String : JsonCreationHandlingTests
 {
     public JsonCreationHandlingTests_String() : base(JsonSerializerWrapper.StringSerializer) { }
