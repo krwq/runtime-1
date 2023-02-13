@@ -410,7 +410,50 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
 
         options.MakeReadOnly();
 
-        string json = """{"Property":[4,5,6]}""";
+        string json = "{}";
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await Serializer.DeserializeWrapper(json, type, options));
+
+        Assert.Throws<InvalidOperationException>(() => options.GetTypeInfo(type));
+    }
+
+    [Theory]
+    [InlineData(typeof(ClassWithWritablePropertyWithoutPopulate<int>))]
+    [InlineData(typeof(ClassWithWritablePropertyWithoutPopulate<int?>))]
+    [InlineData(typeof(ClassWithWritablePropertyWithoutPopulate<int[]>))]
+    [InlineData(typeof(ClassWithWritablePropertyWithoutPopulate<List<int>>))] // custom converter
+    [InlineData(typeof(ClassWithWritablePropertyWithoutPopulate<IEnumerable<int>>))]
+    [InlineData(typeof(ClassWithWritablePropertyWithoutPopulate<IEnumerable>))]
+    [InlineData(typeof(ClassWithWritablePropertyWithoutPopulate<ImmutableArray<int>>))]
+    [InlineData(typeof(ClassWithWritablePropertyWithoutPopulate<ImmutableHashSet<int>>))]
+    [InlineData(typeof(ClassWithWritablePropertyWithoutPopulate<ImmutableList<int>>))]
+    [InlineData(typeof(ClassWithWritablePropertyWithoutPopulate<ImmutableQueue<int>>))]
+    [InlineData(typeof(ClassWithWritablePropertyWithoutPopulate<ImmutableStack<int>>))]
+    public async Task CreationHandlingSetWithAttribute_PopulateSetWithModifierWithInvalidTypeThrows(Type type)
+    {
+        JsonSerializerOptions options = new()
+        {
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+            {
+                Modifiers =
+                {
+                    (ti) =>
+                    {
+                        if (ti.Type == type)
+                        {
+                            Assert.Equal(1, ti.Properties.Count);
+                            JsonPropertyInfo prop = ti.Properties[0];
+                            Assert.Equal(JsonObjectCreationHandling.Replace, prop.CreationHandling);
+                            prop.CreationHandling = JsonObjectCreationHandling.Populate;
+                        }
+                    }
+                }
+            },
+            Converters = { new ThrowingCustomConverter<List<int>>() }
+        };
+
+        options.MakeReadOnly();
+
+        string json = "{}";
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await Serializer.DeserializeWrapper(json, type, options));
 
         Assert.Throws<InvalidOperationException>(() => options.GetTypeInfo(type));
@@ -452,6 +495,26 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
         Assert.Equal(6, ((JsonElement)dict["f"]).GetInt32());
     }
 
+    private static JsonSerializerOptions GetOptionsCustomizeFirstPropertyToPopulateForType(Type type) =>
+        new JsonSerializerOptions()
+        {
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+            {
+                Modifiers =
+                {
+                    ti =>
+                    {
+                        if (ti.Type == type)
+                        {
+                            Assert.True(ti.Properties.Count > 0);
+                            JsonPropertyInfo prop = ti.Properties[0];
+                            prop.CreationHandling = JsonObjectCreationHandling.Populate;
+                        }
+                    }
+                }
+            }
+        };
+
     internal class ClassWithReadOnlyProperty<T>
     {
         [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
@@ -461,6 +524,11 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
     internal class ClassWithWritableProperty<T>
     {
         [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+        public T Property { get; set; }
+    }
+
+    internal class ClassWithWritablePropertyWithoutPopulate<T>
+    {
         public T Property { get; set; }
     }
 

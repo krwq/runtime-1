@@ -16,11 +16,6 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
     [Fact]
     public async Task CreationHandlingSetWithAttribute_CanPopulate_Class()
     {
-        JsonSerializerOptions options = new()
-        {
-            UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
-        };
-
         string json = """
             {
                 "PopulatedPropertyReadOnly":
