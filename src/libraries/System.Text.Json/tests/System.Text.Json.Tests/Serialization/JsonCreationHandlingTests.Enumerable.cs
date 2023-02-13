@@ -1132,9 +1132,9 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
     [InlineData(typeof(ClassWithReadOnlyProperty<StructCollection<int>?>))]
     [InlineData(typeof(ClassWithReadOnlyProperty<StructSet<int>>))]
     [InlineData(typeof(ClassWithReadOnlyProperty<StructSet<int>?>))]
-    public async Task CreationHandlingSetWithAttribute_PopulateWithoutSetterOnValueTypeThrows(Type type)
+    public async Task CreationHandlingSetWithAttribute_PopulateWithoutSetterOnValueTypeThrows_Enumerable(Type type)
     {
-        string json = """{"Property":[4,5,6]}""";
+        string json = "{}";
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await Serializer.DeserializeWrapper(json, type));
     }
 }
