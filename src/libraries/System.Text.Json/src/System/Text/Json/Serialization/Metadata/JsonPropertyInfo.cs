@@ -800,7 +800,7 @@ namespace System.Text.Json.Serialization.Metadata
             }
 
             JsonConverter<JsonElement> converter = (JsonConverter<JsonElement>)Options.GetConverterInternal(typeof(JsonElement));
-            if (!converter.TryRead(ref reader, typeof(JsonElement), Options, ref state, out JsonElement jsonElement))
+            if (!converter.TryRead(ref reader, typeof(JsonElement), Options, ref state, out JsonElement jsonElement, out _))
             {
                 // JsonElement is a struct that must be read in full.
                 value = null;
@@ -830,8 +830,10 @@ namespace System.Text.Json.Serialization.Metadata
 
             Debug.Assert(EffectiveConverter.CanPopulate, "Property is marked with Populate but converter cannot populate. This should have been validated in Configure");
             Debug.Assert(state.Current.ParentObject != null, "Parent object is null");
+            Debug.Assert(!state.Current.IsPopulating, "We've called TryPopulate more than once");
             object? value = Get!(state.Current.ParentObject);
             state.Current.ReturnValue = value;
+            state.Current.IsPopulating = value != null;
             return value != null;
         }
 

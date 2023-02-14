@@ -190,7 +190,7 @@ namespace System.Text.Json.Serialization
         /// <remarks>Note that the value of <seealso cref="HandleNull"/> determines if the converter handles null JSON tokens.</remarks>
         public abstract T? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options);
 
-        internal bool TryRead(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options, scoped ref ReadStack state, out T? value)
+        internal bool TryRead(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options, scoped ref ReadStack state, out T? value, out bool populatedValue)
         {
             // For perf and converter simplicity, handle null here instead of forwarding to the converter.
             if (reader.TokenType == JsonTokenType.Null && !HandleNullOnRead && !state.IsContinuation)
@@ -201,6 +201,7 @@ namespace System.Text.Json.Serialization
                 }
 
                 value = default;
+                populatedValue = default;
                 return true;
             }
 
@@ -245,6 +246,7 @@ namespace System.Text.Json.Serialization
                         ref reader);
                 }
 
+                populatedValue = default;
                 return true;
             }
 
@@ -266,6 +268,7 @@ namespace System.Text.Json.Serialization
                 Debug.Assert(this is ObjectConverter);
                 success = OnTryRead(ref reader, typeToConvert, options, ref state, out value);
                 Debug.Assert(success);
+                populatedValue = default;
                 return true;
             }
 
@@ -315,6 +318,7 @@ namespace System.Text.Json.Serialization
             }
 #endif
 
+            populatedValue = state.Current.IsPopulating;
             state.Pop(success);
 #if DEBUG
             Debug.Assert(ReferenceEquals(originalJsonTypeInfo, state.Current.JsonTypeInfo));
@@ -331,7 +335,7 @@ namespace System.Text.Json.Serialization
 
         internal sealed override bool TryReadAsObject(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options, scoped ref ReadStack state, out object? value)
         {
-            bool success = TryRead(ref reader, typeToConvert, options, ref state, out T? typedValue);
+            bool success = TryRead(ref reader, typeToConvert, options, ref state, out T? typedValue, out _);
             value = typedValue;
             return success;
         }

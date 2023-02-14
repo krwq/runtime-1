@@ -151,7 +151,7 @@ namespace System.Text.Json.Serialization
 
                         // Get the value from the converter and add it.
                         state.Current.JsonPropertyInfo = elementTypeInfo.PropertyInfoForTypeInfo;
-                        _valueConverter.TryRead(ref reader, ElementType, options, ref state, out TValue? element);
+                        _valueConverter.TryRead(ref reader, ElementType, options, ref state, out TValue? element, out _);
                         Add(key, element!, options, ref state);
                     }
                 }
@@ -288,7 +288,7 @@ namespace System.Text.Json.Serialization
                     {
                         // Get the value from the converter and add it.
                         state.Current.JsonPropertyInfo = elementTypeInfo.PropertyInfoForTypeInfo;
-                        bool success = _valueConverter.TryRead(ref reader, typeof(TValue), options, ref state, out TValue? element);
+                        bool success = _valueConverter.TryRead(ref reader, typeof(TValue), options, ref state, out TValue? element, out _);
                         if (!success)
                         {
                             state.Current.DictionaryKey = key;

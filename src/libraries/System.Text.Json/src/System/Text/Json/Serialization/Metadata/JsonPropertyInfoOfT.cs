@@ -381,13 +381,20 @@ namespace System.Text.Json.Serialization.Metadata
                 if (!isNullToken || !IgnoreNullTokensOnRead || default(T) is not null || state.IsContinuation)
                 {
                     state.Current.ReturnValue = obj;
-                    success = EffectiveConverter.TryRead(ref reader, PropertyType, Options, ref state, out T? value);
+
+                    success = EffectiveConverter.TryRead(ref reader, PropertyType, Options, ref state, out T? value, out bool populatedValue);
                     if (success)
                     {
-                        if (typeof(T).IsValueType || CreationHandling != JsonObjectCreationHandling.Populate)
+                        if (typeof(T).IsValueType || !populatedValue)
                         {
-                            Debug.Assert(Set != null, "This case should have been validated in JsonPropertyInfo.Configure");
-                            Set!(obj, value!);
+                            // note: populatedValue value may be different than when CreationHandling is Populate
+                            //       i.e. when initial value of property is null
+
+                            // We cannot do reader.Skip early because converter decides if populating will happen or not
+                            if (CanDeserialize)
+                            {
+                                Set!(obj, value!);
+                            }
                         }
 
                         state.Current.MarkRequiredPropertyAsRead(this);
@@ -425,7 +432,7 @@ namespace System.Text.Json.Serialization.Metadata
                 }
                 else
                 {
-                    success = EffectiveConverter.TryRead(ref reader, PropertyType, Options, ref state, out T? typedValue);
+                    success = EffectiveConverter.TryRead(ref reader, PropertyType, Options, ref state, out T? typedValue, out _);
                     value = typedValue;
                 }
             }

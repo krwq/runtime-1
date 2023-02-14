@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 
+// TODO: deserializing null, initial value null
 namespace System.Text.Json.Serialization.Tests;
 
 public abstract partial class JsonCreationHandlingTests : SerializerTests

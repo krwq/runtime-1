@@ -520,6 +520,60 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty<T>>(json));
     }
 
+    [Theory]
+    [InlineData(typeof(List<int>), true)]
+    [InlineData(typeof(IList<int>), true)]
+    [InlineData(typeof(IList), true)]
+    [InlineData(typeof(Queue<int>), true)]
+    [InlineData(typeof(Queue), true)]
+    [InlineData(typeof(ConcurrentQueue<int>), true)]
+    [InlineData(typeof(Stack<int>), true)]
+    [InlineData(typeof(Stack), true)]
+    [InlineData(typeof(ConcurrentStack<int>), true)]
+    [InlineData(typeof(ICollection<int>), true)]
+    [InlineData(typeof(ISet<int>), true)]
+    [InlineData(typeof(Dictionary<string, int>), false)]
+    [InlineData(typeof(IDictionary<string, int>), false)]
+    [InlineData(typeof(IDictionary), false)]
+    [InlineData(typeof(ConcurrentDictionary<string, int>), false)]
+    [InlineData(typeof(SortedDictionary<string, int>), false)]
+    [InlineData(typeof(StructList<int>?), true)]
+    [InlineData(typeof(StructCollection<int>?), true)]
+    [InlineData(typeof(StructSet<int>?), true)]
+    [InlineData(typeof(StructDictionary<string, int>?), false)]
+    public Task CreationHandling_PopulatedPropertyDeserializeInitiallyNull(Type type, bool isArray)
+    {
+        return (Task)typeof(JsonCreationHandlingTests)
+            .GetMethod(nameof(CreationHandling_PopulatedPropertyDeserializeInitiallyNullGeneric), BindingFlags.NonPublic | BindingFlags.Instance)
+            .MakeGenericMethod(type).Invoke(this, new object[] { isArray });
+    }
+
+    private async Task CreationHandling_PopulatedPropertyDeserializeInitiallyNullGeneric<T>(bool isArray)
+    {
+        string json = isArray ? """{"Property":[1,2,3]}""" : """{"Property":{"a":1,"b":2,"c":3}}""";
+
+        if (typeof(T).IsValueType)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty<T>>("{}"));
+        }
+        else
+        {
+            var obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty<T>>("{}");
+            Assert.Null(obj.Property);
+
+            obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty<T>>(json);
+            Assert.Null(obj.Property);
+        }
+
+        {
+            var obj = await Serializer.DeserializeWrapper<ClassWithWritableProperty<T>>("{}");
+            Assert.Null(obj.Property);
+
+            obj = await Serializer.DeserializeWrapper<ClassWithWritableProperty<T>>(json);
+            Assert.NotNull(obj.Property);
+        }
+    }
+
     private static void CheckGenericDictionaryContent(IDictionary<string, int> dict)
     {
         Assert.Equal(6, dict.Count);
