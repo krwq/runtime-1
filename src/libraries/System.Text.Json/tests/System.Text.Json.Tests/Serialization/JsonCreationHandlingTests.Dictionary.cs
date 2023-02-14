@@ -352,6 +352,14 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
         CheckFirstPropertyIsPopulated(JsonSerializerOptions.Default, typeof(StructWithWritableProperty_NullableStructDictionaryOfStringToInt));
     }
 
+    [Fact]
+    public async Task CreationHandlingSetWithAttribute_PopulatedPropertyCanDeserializeNull_NullableStructDictionaryOfStringToInt()
+    {
+        string json = """{"Property":null}""";
+        var obj = await Serializer.DeserializeWrapper<StructWithWritableProperty_NullableStructDictionaryOfStringToInt>(json);
+        Assert.Null(obj.Property);
+    }
+
     internal struct StructWithWritableProperty_NullableStructDictionaryOfStringToInt
     {
         public StructWithWritableProperty_NullableStructDictionaryOfStringToInt() {}

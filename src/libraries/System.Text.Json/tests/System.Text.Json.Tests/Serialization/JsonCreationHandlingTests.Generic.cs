@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json.Serialization.Metadata;
 using System.Threading.Tasks;
 using Xunit;
@@ -18,7 +19,6 @@ namespace System.Text.Json.Serialization.Tests;
 // - all cases from main issue for dictionary, collection and object
 // - incompatible options
 // - put Populate on property with null value
-// - deserialize null on property which is supposed to be populated
 // - null values (reading, initially set to null)
 // - F#
 // - parametrized ctor
@@ -457,6 +457,67 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await Serializer.DeserializeWrapper(json, type, options));
 
         Assert.Throws<InvalidOperationException>(() => options.GetTypeInfo(type));
+    }
+
+    [Theory]
+    [InlineData(typeof(List<int>))]
+    [InlineData(typeof(IList<int>))]
+    [InlineData(typeof(IList))]
+    [InlineData(typeof(Queue<int>))]
+    [InlineData(typeof(Queue))]
+    [InlineData(typeof(ConcurrentQueue<int>))]
+    [InlineData(typeof(Stack<int>))]
+    [InlineData(typeof(Stack))]
+    [InlineData(typeof(ConcurrentStack<int>))]
+    [InlineData(typeof(ICollection<int>))]
+    [InlineData(typeof(ISet<int>))]
+    [InlineData(typeof(Dictionary<string, int>))]
+    [InlineData(typeof(IDictionary<string, int>))]
+    [InlineData(typeof(IDictionary))]
+    [InlineData(typeof(ConcurrentDictionary<string, int>))]
+    [InlineData(typeof(SortedDictionary<string, int>))]
+    public Task CreationHandling_PopulatedPropertyDeserializeNull(Type type)
+    {
+        return (Task)typeof(JsonCreationHandlingTests)
+            .GetMethod(nameof(CreationHandling_PopulatedPropertyDeserializeNullGeneric), BindingFlags.NonPublic | BindingFlags.Instance)
+            .MakeGenericMethod(type).Invoke(this, null);
+    }
+
+    private async Task CreationHandling_PopulatedPropertyDeserializeNullGeneric<T>()
+    {
+        string json = """{"Property":null}""";
+        var obj = await Serializer.DeserializeWrapper<ClassWithWritableProperty<T>>(json);
+        Assert.Null(obj.Property);
+    }
+
+    [Theory]
+    [InlineData(typeof(List<int>))]
+    [InlineData(typeof(IList<int>))]
+    [InlineData(typeof(IList))]
+    [InlineData(typeof(Queue<int>))]
+    [InlineData(typeof(Queue))]
+    [InlineData(typeof(ConcurrentQueue<int>))]
+    [InlineData(typeof(Stack<int>))]
+    [InlineData(typeof(Stack))]
+    [InlineData(typeof(ConcurrentStack<int>))]
+    [InlineData(typeof(ICollection<int>))]
+    [InlineData(typeof(ISet<int>))]
+    [InlineData(typeof(Dictionary<string, int>))]
+    [InlineData(typeof(IDictionary<string, int>))]
+    [InlineData(typeof(IDictionary))]
+    [InlineData(typeof(ConcurrentDictionary<string, int>))]
+    [InlineData(typeof(SortedDictionary<string, int>))]
+    public Task CreationHandling_PopulatedPropertyDeserializeNullOnReadOnlyProperty(Type type)
+    {
+        return (Task)typeof(JsonCreationHandlingTests)
+            .GetMethod(nameof(CreationHandling_PopulatedPropertyDeserializeNullOnReadOnlyPropertyGeneric), BindingFlags.NonPublic | BindingFlags.Instance)
+            .MakeGenericMethod(type).Invoke(this, null);
+    }
+
+    private async Task CreationHandling_PopulatedPropertyDeserializeNullOnReadOnlyPropertyGeneric<T>()
+    {
+        string json = """{"Property":null}""";
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty<T>>(json));
     }
 
     private static void CheckGenericDictionaryContent(IDictionary<string, int> dict)

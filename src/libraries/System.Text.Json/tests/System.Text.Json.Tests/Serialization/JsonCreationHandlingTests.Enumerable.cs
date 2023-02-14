@@ -352,6 +352,14 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
         CheckFirstPropertyIsPopulated(JsonSerializerOptions.Default, typeof(StructWithWritableProperty_NullableStructListOfInt));
     }
 
+    [Fact]
+    public async Task CreationHandlingSetWithAttribute_PopulatedPropertyCanDeserializeNull_NullableStructListOfInt()
+    {
+        string json = """{"Property":null}""";
+        var obj = await Serializer.DeserializeWrapper<StructWithWritableProperty_NullableStructListOfInt>(json);
+        Assert.Null(obj.Property);
+    }
+
     internal struct StructWithWritableProperty_NullableStructListOfInt
     {
         public StructWithWritableProperty_NullableStructListOfInt() {}
@@ -905,6 +913,14 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
         CheckFirstPropertyIsPopulated(JsonSerializerOptions.Default, typeof(ClassWithWritableProperty_NullableStructCollectionOfInt));
     }
 
+    [Fact]
+    public async Task CreationHandlingSetWithAttribute_PopulatedPropertyCanDeserializeNull_NullableStructCollectionOfInt()
+    {
+        string json = """{"Property":null}""";
+        var obj = await Serializer.DeserializeWrapper<ClassWithWritableProperty_NullableStructCollectionOfInt>(json);
+        Assert.Null(obj.Property);
+    }
+
     internal class ClassWithWritableProperty_NullableStructCollectionOfInt
     {
         [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
@@ -1134,6 +1150,14 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
         Assert.Equal(Enumerable.Range(1, 6), obj.Property.Value);
         obj.Property.Value.Validate();
         CheckFirstPropertyIsPopulated(JsonSerializerOptions.Default, typeof(StructWithWritableProperty_NullableStructSetOfInt));
+    }
+
+    [Fact]
+    public async Task CreationHandlingSetWithAttribute_PopulatedPropertyCanDeserializeNull_NullableStructSetOfInt()
+    {
+        string json = """{"Property":null}""";
+        var obj = await Serializer.DeserializeWrapper<StructWithWritableProperty_NullableStructSetOfInt>(json);
+        Assert.Null(obj.Property);
     }
 
     internal struct StructWithWritableProperty_NullableStructSetOfInt

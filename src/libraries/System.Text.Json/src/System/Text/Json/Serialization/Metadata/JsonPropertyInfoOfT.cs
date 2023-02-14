@@ -336,15 +336,17 @@ namespace System.Text.Json.Serialization.Metadata
             bool success;
 
             bool isNullToken = reader.TokenType == JsonTokenType.Null;
-            if (isNullToken && CreationHandling == JsonObjectCreationHandling.Populate)
-            {
-                throw new InvalidOperationException($"Property `{Name}` has CreationHandling set to Populate but null is provided.");
-            }
 
             if (isNullToken && !EffectiveConverter.HandleNullOnRead && !state.IsContinuation)
             {
-                if (default(T) is not null)
+                if (default(T) is not null || !CanDeserialize)
                 {
+                    if (default(T) is null)
+                    {
+                        Debug.Assert(CanDeserialize || CreationHandling == JsonObjectCreationHandling.Populate);
+                        ThrowHelper.ThrowInvalidOperationException_DeserializeUnableToAssignNull(EffectiveConverter.TypeToConvert);
+                    }
+
                     ThrowHelper.ThrowJsonException_DeserializeUnableToConvertValue(EffectiveConverter.TypeToConvert);
                 }
 
