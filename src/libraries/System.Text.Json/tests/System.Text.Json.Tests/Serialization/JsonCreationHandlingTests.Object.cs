@@ -28,6 +28,7 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
                 }
             }
             """;
+
         var obj = await Serializer.DeserializeWrapper<ClassWithClassProperty>(json);
         Assert.NotNull(obj);
         Assert.Equal("InitialForPopulate1", obj.PopulatedPropertyReadOnly.StringValue);

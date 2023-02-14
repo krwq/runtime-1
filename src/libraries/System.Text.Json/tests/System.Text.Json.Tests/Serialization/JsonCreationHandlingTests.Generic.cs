@@ -14,7 +14,6 @@ using Xunit;
 
 namespace System.Text.Json.Serialization.Tests;
 
-// - set through attribute and metadata
 // - polymorphism (i.e. populate polymorphic object, ensure it's within allowed hierarchy or do base type)
 // - all cases from main issue for dictionary, collection and object
 // - incompatible options
@@ -28,6 +27,7 @@ namespace System.Text.Json.Serialization.Tests;
 // - same property ocurring multiple times in the payload
 // - required properties
 // - callbacks
+// - try to unify StructList with existing Generic something Wrapper
 public sealed partial class JsonCreationHandlingTests_String : JsonCreationHandlingTests
 {
     public JsonCreationHandlingTests_String() : base(JsonSerializerWrapper.StringSerializer) { }
@@ -514,6 +514,14 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
                 }
             }
         };
+
+    private static void CheckFirstPropertyIsPopulated(JsonSerializerOptions options, Type type)
+    {
+        JsonTypeInfo typeInfo = options.GetTypeInfo(type);
+        Assert.Equal(1, typeInfo.Properties.Count);
+        JsonPropertyInfo propertyInfo = typeInfo.Properties[0];
+        Assert.Equal(JsonObjectCreationHandling.Populate, propertyInfo.CreationHandling);
+    }
 
     internal class ClassWithReadOnlyProperty<T>
     {
