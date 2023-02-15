@@ -9,7 +9,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 
-// TODO: deserializing null, initial value null
+// TODO:
+// - put Populate on property with null value
+// - null values (reading, initially set to null)
+// - same property ocurring multiple times in the payload
+// - polymorphism (i.e. populate polymorphic object, ensure it's within allowed hierarchy or do base type)
+// - parametrized ctor
+// - required properties
+// - callbacks
 namespace System.Text.Json.Serialization.Tests;
 
 public abstract partial class JsonCreationHandlingTests : SerializerTests

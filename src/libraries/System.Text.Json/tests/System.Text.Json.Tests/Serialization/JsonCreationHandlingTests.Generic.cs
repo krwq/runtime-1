@@ -15,19 +15,13 @@ using Xunit;
 
 namespace System.Text.Json.Serialization.Tests;
 
-// - polymorphism (i.e. populate polymorphic object, ensure it's within allowed hierarchy or do base type)
 // - all cases from main issue for dictionary, collection and object
-// - incompatible options
-// - put Populate on property with null value
-// - null values (reading, initially set to null)
 // - F#
-// - parametrized ctor
 // - TODO: replace error messages with resource strings
-// - CreationHandlingSetWithAttribute_PopulateWithInvalidTypeThrows: dictionary, parametrized ctor
-// - same property ocurring multiple times in the payload
-// - required properties
-// - callbacks
+// - incompatible options
+// - CreationHandlingSetWithAttribute_PopulateWithInvalidTypeThrows: object, parametrized ctor
 // - try to unify StructList with existing Generic something Wrapper
+// - source gen
 public sealed partial class JsonCreationHandlingTests_String : JsonCreationHandlingTests
 {
     public JsonCreationHandlingTests_String() : base(JsonSerializerWrapper.StringSerializer) { }
@@ -574,40 +568,30 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
         }
     }
 
-    private static void CheckGenericDictionaryContent(IDictionary<string, int> dict)
+    private static void CheckGenericDictionaryContent(IDictionary<string, int> dict, int expectedNumberOfElements = 6)
     {
-        Assert.Equal(6, dict.Count);
-        Assert.True(dict.ContainsKey("a"), "Dictionary does not contain 'a' key.");
-        Assert.True(dict.ContainsKey("b"), "Dictionary does not contain 'b' key.");
-        Assert.True(dict.ContainsKey("c"), "Dictionary does not contain 'c' key.");
-        Assert.True(dict.ContainsKey("d"), "Dictionary does not contain 'd' key.");
-        Assert.True(dict.ContainsKey("e"), "Dictionary does not contain 'e' key.");
-        Assert.True(dict.ContainsKey("f"), "Dictionary does not contain 'f' key.");
+        Assert.Equal(expectedNumberOfElements, dict.Count);
 
-        Assert.Equal(1, dict["a"]);
-        Assert.Equal(2, dict["b"]);
-        Assert.Equal(3, dict["c"]);
-        Assert.Equal(4, dict["d"]);
-        Assert.Equal(5, dict["e"]);
-        Assert.Equal(6, dict["f"]);
+        for (int i = 0; i < expectedNumberOfElements; i++)
+        {
+            string expectedKey = ((char)('a' + i)).ToString();
+            int expectedValue = i + 1;
+            Assert.True(dict.ContainsKey(expectedKey), $"Dictionary does not contain '{expectedKey}' key.");
+            Assert.Equal(expectedValue, dict[expectedKey]);
+        }
     }
 
-    private static void CheckDictionaryContent(IDictionary dict)
+    private static void CheckDictionaryContent(IDictionary dict, int expectedNumberOfElements = 6)
     {
-        Assert.Equal(6, dict.Count);
-        Assert.True(dict.Contains("a"), "Dictionary does not contain 'a' key.");
-        Assert.True(dict.Contains("b"), "Dictionary does not contain 'b' key.");
-        Assert.True(dict.Contains("c"), "Dictionary does not contain 'c' key.");
-        Assert.True(dict.Contains("d"), "Dictionary does not contain 'd' key.");
-        Assert.True(dict.Contains("e"), "Dictionary does not contain 'e' key.");
-        Assert.True(dict.Contains("f"), "Dictionary does not contain 'f' key.");
+        Assert.Equal(expectedNumberOfElements, dict.Count);
 
-        Assert.Equal(1, ((JsonElement)dict["a"]).GetInt32());
-        Assert.Equal(2, ((JsonElement)dict["b"]).GetInt32());
-        Assert.Equal(3, ((JsonElement)dict["c"]).GetInt32());
-        Assert.Equal(4, ((JsonElement)dict["d"]).GetInt32());
-        Assert.Equal(5, ((JsonElement)dict["e"]).GetInt32());
-        Assert.Equal(6, ((JsonElement)dict["f"]).GetInt32());
+        for (int i = 0; i < expectedNumberOfElements; i++)
+        {
+            string expectedKey = ((char)('a' + i)).ToString();
+            int expectedValue = i + 1;
+            Assert.True(dict.Contains(expectedKey), $"Dictionary does not contain '{expectedKey}' key.");
+            Assert.Equal(expectedValue, ((JsonElement)dict[expectedKey]).GetInt32());
+        }
     }
 
     private static JsonSerializerOptions GetOptionsCustomizeFirstPropertyToPopulateForType(Type type) =>
