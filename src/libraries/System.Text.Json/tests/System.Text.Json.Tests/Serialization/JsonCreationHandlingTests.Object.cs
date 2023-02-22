@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
+using static System.Text.Json.Serialization.Tests.JsonCreationHandlingTests;
 
 // TODO:
 // - put Populate on property with null value
@@ -21,6 +22,60 @@ namespace System.Text.Json.Serialization.Tests;
 
 public abstract partial class JsonCreationHandlingTests : SerializerTests
 {
+    [Fact]
+    public async Task CreationHandlingSetWithAttribute_CanPopulateReadonlyProperty_SimpleClass()
+    {
+        string json = """{"Property":{"StringValue":"NewValue"}}""";
+
+        var obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty_SimpleClass>(json);
+        Assert.NotNull(obj);
+        Assert.NotNull(obj.Property);
+        Assert.Equal("NewValue", obj.Property.StringValue);
+        Assert.Equal(42, obj.Property.IntValue);
+    }
+
+    [Fact]
+    public async Task CreationHandlingSetWithAttribute_CanPopulateReadonlyProperty_SimpleClass_PropertyOccurredMultipleTimes()
+    {
+        string json = """{"Property":{"StringValue":"NewValue"}, "Property":{}}""";
+
+        var obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty_SimpleClass>(json);
+        Assert.NotNull(obj);
+        Assert.NotNull(obj.Property);
+        Assert.Equal("NewValue", obj.Property.StringValue);
+        Assert.Equal(42, obj.Property.IntValue);
+
+        json = """{"Property":{"StringValue":"NewValue"}, "Property":{}, "Property":{"IntValue":45}}""";
+        obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty_SimpleClass>(json);
+        Assert.NotNull(obj);
+        Assert.NotNull(obj.Property);
+        Assert.Equal("NewValue", obj.Property.StringValue);
+        Assert.Equal(45, obj.Property.IntValue);
+    }
+
+    [Fact]
+    public async Task CreationHandlingSetWithAttribute_PopulateReadonlyProperty_SimpleClass_DeserializingNull()
+    {
+        string json = """{"Property":null}""";
+
+        var obj = await Serializer.DeserializeWrapper<ClassWithReadOnlyProperty_SimpleClass>(json);
+    }
+
+    internal class ClassWithReadOnlyProperty_SimpleClass
+    {
+        [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+        public SimpleClass Property { get; } = new();
+    }
+
+    internal class SimpleClass
+    {
+        public string StringValue { get; set; } = "Initial";
+        public int IntValue { get; set; } = 42;
+    }
+
+    /// ......
+
+
     [Fact]
     public async Task CreationHandlingSetWithAttribute_CanPopulate_Class()
     {
@@ -83,7 +138,6 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
             get => _populatedWithChildren;
             set => Assert.Fail("Setter should not be used");
         }
-
     }
 
     internal class SomeClass
@@ -95,4 +149,6 @@ public abstract partial class JsonCreationHandlingTests : SerializerTests
         [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
         public SomeClass? PopulatedChild { get; set; }
     }
+
+    
 }
