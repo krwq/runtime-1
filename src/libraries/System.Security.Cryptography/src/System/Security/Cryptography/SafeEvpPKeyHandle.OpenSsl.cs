@@ -182,6 +182,11 @@ namespace System.Security.Cryptography
             return Interop.Crypto.LoadPublicKeyFromEngine(engineName, keyName);
         }
 
+        [UnsupportedOSPlatform("android")]
+        [UnsupportedOSPlatform("browser")]
+        [UnsupportedOSPlatform("ios")]
+        [UnsupportedOSPlatform("tvos")]
+        [UnsupportedOSPlatform("windows")]
         public static SafeEvpPKeyHandle OpenKeyFromProvider(string providerName, string keyUri)
         {
             ArgumentException.ThrowIfNullOrEmpty(providerName);
