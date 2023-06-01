@@ -34,7 +34,7 @@ static EVP_PKEY* load_key(
     const char* keyId,
     EVP_PKEY* (*load_func)(BIO* bio))
 {
-	printf("Key load request for '%s'\n", keyId);
+    printf("Key load request for '%s'\n", keyId);
     EVP_PKEY* ret = NULL;
 
     if (keyId != NULL && g_keyPathLength > 0 && g_keyPathLength < 250)
