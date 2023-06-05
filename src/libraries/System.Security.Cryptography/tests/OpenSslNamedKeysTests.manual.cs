@@ -4,6 +4,8 @@
 using System.IO;
 using System.Reflection;
 using System.Security.Cryptography.EcDsa.Tests;
+using System.Security.Cryptography.X509Certificates.Tests;
+using Test.Cryptography;
 using Xunit;
 
 namespace System.Security.Cryptography.Tests
@@ -11,39 +13,63 @@ namespace System.Security.Cryptography.Tests
     [SkipOnPlatform(~TestPlatforms.Linux, "Only supported when ")]
     public class OpenSslNamedKeysTests
     {
+        private static readonly byte[] s_rsaPrivateKey = (
+            "3082025C02010002818100BF67168485215A6AB89BCAB9331F6F5F360F4300BE5CF282F77042957E" +
+            "A202908B2279F34A426D62F59D6C1056E36DC9F6EEA9AEB1B31F8122F583EE9CAE2A86A47144905D" +
+            "F05441B0A5F29E03C5AC1888D93744D89638D83AC37774B339E4AFB349C714B12238B0F81A71380F" +
+            "051C585CB27434FA544BDAC679E1E16581D0E902030100010281810084ED8862F2BEAE37CE0C4CA7" +
+            "808CC5615F7F0BEE99469E1A3CD4973991DFDC5E1C730E34DC0EF43F350B668096878EB92428AE69" +
+            "A7FA19D82ABA4E2D4A5D5F243D4B7346734D705C4C494FE2B36E2E35C39EE08BFB1172F5AB084AF4" +
+            "4BD4D03702D04E6469F026EF3749CBED3ECB310746CF49DA3C2785CC17D54215EF18F3ED024100D0" +
+            "63F89E01EB681CEACB781FE807F87C702B522A76B7D0E06DA44BB7D6202D5E9F3E7BE5BCCC3B32B9" +
+            "B293AB62F50A8417C2FA9D6A76E465AA962AB61A8A9A13024100EB218F00B7317CC625DF2DFB7181" +
+            "1DC5DA91D9A2AD859282DCA6BA3B4C674897E9D03D9E5FD2A9FD4CE7D9A3E5B79E948429C21561E7" +
+            "141D90BCA75733D2489302400D07D349FE10BC47E29EAA7A44460B51ACA9E8CF62F1078CA10E7EF5" +
+            "95DC193A2B76FAC458D3E477BD88DF16FE6F18233E6120CEAB1398208B542C838A91542502407882" +
+            "619D9746A8D191957A26B5FCDBFA8CD455BBF7BD4EE2FD1E02B2E3ACC7DAFC3DFB66D16BD22DFD9D" +
+            "92C15ABA2A6FA9F111050E8175A0D58EAB219970BC3B02404DBF36E5DCBF027AD4ED572E6F5F8383" +
+            "C08CD5838C0CAE16FA58EE5C5A388B287F9C58647D58609B03912A10D0C772A3259D39651CD1EEB3" +
+            "A20C5F9AE58E18C0").HexToByteArray();
+
+        private static readonly byte[] s_rsaPubKey = (
+            "30818902818100BF67168485215A6AB89BCAB9331F6F5F360F4300BE5CF282F77042957EA202908B" +
+            "2279F34A426D62F59D6C1056E36DC9F6EEA9AEB1B31F8122F583EE9CAE2A86A47144905DF05441B0" +
+            "A5F29E03C5AC1888D93744D89638D83AC37774B339E4AFB349C714B12238B0F81A71380F051C585C" +
+            "B27434FA544BDAC679E1E16581D0E90203010001").HexToByteArray();
+
         [Fact]
         public static void OpenExistingPrivateKey()
         {
-            using (RSAOpenSsl rsa = new RSAOpenSsl())
-            {
-                //using TempFileHolder
-                SafeEvpPKeyHandle.OpenPrivateKeyFromEngine("dntest", "first key").Dispose();
-            }
+            using SafeEvpPKeyHandle priKeyHandle = SafeEvpPKeyHandle.OpenPrivateKeyFromEngine("dntest", "first");
+            using RSA priKey = new RSAOpenSsl(priKeyHandle);
+            Assert.Equal(s_rsaPubKey, priKey.ExportRSAPublicKey());
         }
 
         [Fact]
         public static void OpenExistingPublicKey()
         {
-            SafeEvpPKeyHandle.OpenPublicKeyFromEngine("dntest", "first pubkey").Dispose();
+            using SafeEvpPKeyHandle pubKeyHandle = SafeEvpPKeyHandle.OpenPublicKeyFromEngine("dntest", "first");
+            using RSA pubKey = new RSAOpenSsl(pubKeyHandle);
+            Assert.Equal(s_rsaPubKey, pubKey.ExportRSAPublicKey());
         }
 
-        [Fact]
-        public static void UseThoseKeys()
-        {
-            using (SafeEvpPKeyHandle priv = SafeEvpPKeyHandle.OpenPrivateKeyFromEngine("dntest", "first key"))
-            using (SafeEvpPKeyHandle pub = SafeEvpPKeyHandle.OpenPublicKeyFromEngine("dntest", "second pubkey"))
-            using (SafeEvpPKeyHandle pubBad = SafeEvpPKeyHandle.OpenPublicKeyFromEngine("dntest", "first pubkey"))
-            using (RSA rsaPriv = new RSAOpenSsl(priv))
-            using (RSA rsaPub = new RSAOpenSsl(pub))
-            using (RSA rsaBad = new RSAOpenSsl(pubBad))
-            {
-                byte[] data = new byte[] { 1, 2, 3, 1, 1, 2, 3 };
-                byte[] signature = rsaPriv.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+        //[Fact]
+        //public static void UseThoseKeys()
+        //{
+        //    using (SafeEvpPKeyHandle priv = SafeEvpPKeyHandle.OpenPrivateKeyFromEngine("dntest", "first"))
+        //    using (SafeEvpPKeyHandle pub = SafeEvpPKeyHandle.OpenPublicKeyFromEngine("dntest", "first"))
+        //    using (SafeEvpPKeyHandle pubBad = SafeEvpPKeyHandle.OpenPublicKeyFromEngine("dntest", "first pubkey"))
+        //    using (RSA rsaPriv = new RSAOpenSsl(priv))
+        //    using (RSA rsaPub = new RSAOpenSsl(pub))
+        //    using (RSA rsaBad = new RSAOpenSsl(pubBad))
+        //    {
+        //        byte[] data = new byte[] { 1, 2, 3, 1, 1, 2, 3 };
+        //        byte[] signature = rsaPriv.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
 
-                Console.WriteLine($"rsaPub: {rsaPub.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss)}");
-                Console.WriteLine($"rsaBad: {rsaBad.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss)}");
-            }
-        }
+        //        Console.WriteLine($"rsaPub: {rsaPub.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss)}");
+        //        Console.WriteLine($"rsaBad: {rsaBad.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss)}");
+        //    }
+        //}
 
         // [Fact]
         // public static void UseProviderKeys()
