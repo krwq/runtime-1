@@ -9,6 +9,7 @@
 static const char* g_engineId = "dntest";
 static const char* g_engineName = "DotNet Test ENGINE";
 
+// PKCS#1 format
 static char g_pubRsaKey[140] = {
     0x30,0x81,0x89,0x02,0x81,0x81,0x00,0xBF,0x67,0x16,0x84,0x85,0x21,0x5A,0x6A,0xB8,
     0x9B,0xCA,0xB9,0x33,0x1F,0x6F,0x5F,0x36,0x0F,0x43,0x00,0xBE,0x5C,0xF2,0x82,0xF7,
@@ -21,6 +22,7 @@ static char g_pubRsaKey[140] = {
     0x79,0xE1,0xE1,0x65,0x81,0xD0,0xE9,0x02,0x03,0x01,0x00,0x01
 };
 
+// PKCS#1 format
 char g_priRsaKey[608] = {
     0x30,0x82,0x02,0x5C,0x02,0x01,0x00,0x02,0x81,0x81,0x00,0xBF,0x67,0x16,0x84,0x85,
     0x21,0x5A,0x6A,0xB8,0x9B,0xCA,0xB9,0x33,0x1F,0x6F,0x5F,0x36,0x0F,0x43,0x00,0xBE,
@@ -64,21 +66,42 @@ char g_priRsaKey[608] = {
 
 static EVP_PKEY* load_priv(BIO* bio)
 {
-    EVP_PKEY* ret = NULL;
-    PKCS8_PRIV_KEY_INFO* p8info = PEM_read_bio_PKCS8_PRIV_KEY_INFO(bio, NULL, NULL, NULL);
-
-    if (p8info != NULL)
+    RSA* rsaKey = d2i_RSAPrivateKey_bio(bio, NULL);
+    if (!rsaKey)
     {
-        ret = EVP_PKCS82PKEY(p8info);
-        PKCS8_PRIV_KEY_INFO_free(p8info);
+        printf("Error loading RSA Private Key\n");
+        return NULL;
     }
 
-    return ret;
+    EVP_PKEY* key = EVP_PKEY_new();
+    if (!EVP_PKEY_assign_RSA(key, rsaKey))
+    {
+        printf("Error assigning RSA Private Key to EVP_PKEY\n");
+        RSA_free(rsaKey);
+        return NULL;
+    }
+
+    return key;
 }
 
 static EVP_PKEY* load_pub(BIO* bio)
 {
-    return PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+    RSA *rsaKey = d2i_RSAPublicKey_bio(bio, NULL);
+    if (!rsaKey)
+    {
+        printf("Error loading RSA Public Key\n");
+        return NULL;
+    }
+
+    EVP_PKEY* key = EVP_PKEY_new();
+    if (!EVP_PKEY_assign_RSA(key, rsaKey)) 
+    {
+        printf("Error assigning RSA Public Key to EVP_PKEY\n");
+        RSA_free(rsaKey);
+        return NULL;
+    }
+
+    return key;
 }
 
 static EVP_PKEY* load_key(
@@ -87,8 +110,8 @@ static EVP_PKEY* load_key(
     int keyLength,
     EVP_PKEY* (*load_func)(BIO* bio))
 {
-    printf("Key load request for '%s'\n", keyId);
-    EVP_PKEY* ret = null;
+    printf("Key load request for '%s'. Key length=%d\n", keyId, keyLength);
+    EVP_PKEY* ret = NULL;
     if (keyId != NULL)
     {
         if (strcmp(keyId, "first") == 0)
@@ -96,9 +119,13 @@ static EVP_PKEY* load_key(
             BIO* bio = BIO_new_mem_buf(key, keyLength);
             if (bio != NULL)
             {
-                ret = load_pri(bio);
+                ret = load_func(bio);
                 BIO_free(bio);
             }
+        }
+        else
+        {
+            printf("Key load request failed for '%s'\n", keyId);
         }
     }
 
@@ -111,7 +138,8 @@ static EVP_PKEY* dntest_load_privkey(
     UI_METHOD* ui_method,
     void* callback_data)
 {
-    return load_key(keyId, g_priRsaKey, sizeof(g_priRsaKey), load_pri);
+    printf("Request to load private key for %s\n", keyId);
+    return load_key(keyId, g_priRsaKey, sizeof(g_priRsaKey), load_priv);
 }
 
 static EVP_PKEY* dntest_load_pubkey(
@@ -120,6 +148,7 @@ static EVP_PKEY* dntest_load_pubkey(
     UI_METHOD* ui_method,
     void* callback_data)
 {
+    printf("Request to load public key for %s\n", keyId);
     return load_key(keyId, g_pubRsaKey, sizeof(g_pubRsaKey), load_pub);
 }
 

@@ -13,6 +13,7 @@ namespace System.Security.Cryptography.Tests
     [SkipOnPlatform(~TestPlatforms.Linux, "Only supported when ")]
     public class OpenSslNamedKeysTests
     {
+        // PKCS#1 format
         private static readonly byte[] s_rsaPrivateKey = (
             "3082025C02010002818100BF67168485215A6AB89BCAB9331F6F5F360F4300BE5CF282F77042957E" +
             "A202908B2279F34A426D62F59D6C1056E36DC9F6EEA9AEB1B31F8122F583EE9CAE2A86A47144905D" +
@@ -31,6 +32,7 @@ namespace System.Security.Cryptography.Tests
             "C08CD5838C0CAE16FA58EE5C5A388B287F9C58647D58609B03912A10D0C772A3259D39651CD1EEB3" +
             "A20C5F9AE58E18C0").HexToByteArray();
 
+        // PKCS#1 format
         private static readonly byte[] s_rsaPubKey = (
             "30818902818100BF67168485215A6AB89BCAB9331F6F5F360F4300BE5CF282F77042957EA202908B" +
             "2279F34A426D62F59D6C1056E36DC9F6EEA9AEB1B31F8122F583EE9CAE2A86A47144905DF05441B0" +
