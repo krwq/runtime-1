@@ -10,7 +10,7 @@ using Xunit;
 
 namespace System.Security.Cryptography.Tests
 {
-    [SkipOnPlatform(~TestPlatforms.Linux, "Only supported when ")]
+    [SkipOnPlatform(~TestPlatforms.Linux, "Only supported on ")] // TODO: require openssl
     public class OpenSslNamedKeysTests
     {
         // PKCS#1 format
@@ -40,19 +40,104 @@ namespace System.Security.Cryptography.Tests
             "B27434FA544BDAC679E1E16581D0E90203010001").HexToByteArray();
 
         [Fact]
-        public static void OpenExistingPrivateKey()
+        public static void NullArguments()
+        {
+            Assert.Throws<ArgumentNullException>("engineName", () => SafeEvpPKeyHandle.OpenPrivateKeyFromEngine(null, "first"));
+            Assert.Throws<ArgumentNullException>("keyName", () => SafeEvpPKeyHandle.OpenPrivateKeyFromEngine("dntest", null));
+
+            Assert.Throws<ArgumentNullException>("engineName", () => SafeEvpPKeyHandle.OpenPublicKeyFromEngine(null, "first"));
+            Assert.Throws<ArgumentNullException>("keyName", () => SafeEvpPKeyHandle.OpenPublicKeyFromEngine("dntest", null));
+
+            Assert.Throws<ArgumentNullException>("providerName", () => SafeEvpPKeyHandle.OpenKeyFromProvider(null, "first"));
+            Assert.Throws<ArgumentNullException>("keyUri", () => SafeEvpPKeyHandle.OpenKeyFromProvider("dntestprovider", null));
+        }
+
+        [Fact]
+        public static void NonExistingEngineOrProvider()
+        {
+            Assert.ThrowsAny<CryptographicException>(() => SafeEvpPKeyHandle.OpenPrivateKeyFromEngine("dntestnonexisting", "first"));
+            Assert.ThrowsAny<CryptographicException>(() => SafeEvpPKeyHandle.OpenPublicKeyFromEngine("dntestnonexisting", "first"));
+            Assert.ThrowsAny<CryptographicException>(() => SafeEvpPKeyHandle.OpenKeyFromProvider("dntestnonexisting", "first"));
+        }
+
+        [Fact]
+        public static void NonExistingKey()
+        {
+            Assert.ThrowsAny<CryptographicException>(() => SafeEvpPKeyHandle.OpenPrivateKeyFromEngine("dntest", "nonexisting"));
+            Assert.ThrowsAny<CryptographicException>(() => SafeEvpPKeyHandle.OpenPublicKeyFromEngine("dntest", "nonexisting"));
+            Assert.ThrowsAny<CryptographicException>(() => SafeEvpPKeyHandle.OpenKeyFromProvider("dntestprovider", "nonexisting"));
+        }
+
+        [Fact]
+        public static void Engine_OpenExistingPrivateKey()
         {
             using SafeEvpPKeyHandle priKeyHandle = SafeEvpPKeyHandle.OpenPrivateKeyFromEngine("dntest", "first");
             using RSA priKey = new RSAOpenSsl(priKeyHandle);
+            RSAParameters rsaParams = priKey.ExportParameters(includePrivateParameters: true);
+            Assert.NotNull(rsaParams.D);
             Assert.Equal(s_rsaPubKey, priKey.ExportRSAPublicKey());
         }
 
         [Fact]
-        public static void OpenExistingPublicKey()
+        public static void Engine_OpenExistingPublicKey()
         {
             using SafeEvpPKeyHandle pubKeyHandle = SafeEvpPKeyHandle.OpenPublicKeyFromEngine("dntest", "first");
             using RSA pubKey = new RSAOpenSsl(pubKeyHandle);
+            Assert.ThrowsAny<CryptographicException>(() => pubKey.ExportParameters(includePrivateParameters: true));
+            RSAParameters rsaParams = pubKey.ExportParameters(includePrivateParameters: false);
+            Assert.Null(rsaParams.D);
             Assert.Equal(s_rsaPubKey, pubKey.ExportRSAPublicKey());
+        }
+
+        [Fact]
+        public static void Engine_UsePrivateKey()
+        {
+            using (SafeEvpPKeyHandle priKeyHandle = SafeEvpPKeyHandle.OpenPrivateKeyFromEngine("dntest", "first"))
+            using (RSA rsaPri = new RSAOpenSsl(priKeyHandle))
+            using (RSA rsaPub = RSA.Create())
+            using (RSA rsaBad = RSA.Create(1024))
+            {
+                rsaPub.ImportRSAPublicKey(s_rsaPubKey, out int bytesRead);
+                Assert.Equal(s_rsaPubKey.Length, bytesRead);
+
+                byte[] data = new byte[] { 1, 2, 3, 1, 1, 2, 3 };
+                byte[] signature = rsaPri.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+
+                Assert.True(rsaPub.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+                Assert.False(rsaBad.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+
+                byte[] encrypted = rsaPub.Encrypt(data, RSAEncryptionPadding.OaepSHA256);
+                Assert.NotEqual(encrypted, data);
+
+                byte[] decrypted = rsaPri.Decrypt(encrypted, RSAEncryptionPadding.OaepSHA256);
+                Assert.Equal(data, decrypted);
+            }
+        }
+
+        [Fact]
+        public static void Engine_UsePublicKey()
+        {
+            using (SafeEvpPKeyHandle pubKeyHandle = SafeEvpPKeyHandle.OpenPublicKeyFromEngine("dntest", "first"))
+            using (RSA rsaPub = new RSAOpenSsl(pubKeyHandle))
+            using (RSA rsaPri = RSA.Create())
+            using (RSA rsaBad = RSA.Create(1024))
+            {
+                rsaPri.ImportRSAPrivateKey(s_rsaPrivateKey, out int bytesRead);
+                Assert.Equal(s_rsaPrivateKey.Length, bytesRead);
+
+                byte[] data = new byte[] { 1, 2, 3, 1, 1, 2, 3 };
+                byte[] signature = rsaPri.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+                byte[] differentKeySignature = rsaBad.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+
+                Assert.True(rsaPub.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+                Assert.False(rsaPub.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+
+                byte[] encrypted = rsaPub.Encrypt(data, RSAEncryptionPadding.OaepSHA256);
+                Assert.NotEqual(encrypted, data);
+
+                byte[] decrypted = rsaPri.Decrypt(encrypted, RSAEncryptionPadding.OaepSHA256);
+                Assert.Equal(data, decrypted);
+            }
         }
 
         //[Fact]
