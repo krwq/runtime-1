@@ -130,7 +130,7 @@ namespace System.Security.Cryptography.Tests
                 byte[] differentKeySignature = rsaBad.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
 
                 Assert.True(rsaPub.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
-                Assert.False(rsaPub.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+                Assert.False(rsaPub.VerifyData(data, differentKeySignature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
 
                 byte[] encrypted = rsaPub.Encrypt(data, RSAEncryptionPadding.OaepSHA256);
                 Assert.NotEqual(encrypted, data);
