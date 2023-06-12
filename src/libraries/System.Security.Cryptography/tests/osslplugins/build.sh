@@ -12,7 +12,7 @@ fi
 if [ -e /usr/include/openssl/provider.h ]; then
     echo Building dntestprov Provider
     clang -fPIC -o p_dntestprov.o -c p_dntestprov.c &&
-        ld -shared --no-undefined --build-id -lcrypto -lc -o dntestprov.so p_dntestprov.o &&
+        ld -shared --no-undefined --build-id -o dntestprov.so p_dntestprov.o -lcrypto -lc &&
 	echo dntestprov Provider built successfully!
 else
     echo Cannot build dntestprov Provider, missing provider.h

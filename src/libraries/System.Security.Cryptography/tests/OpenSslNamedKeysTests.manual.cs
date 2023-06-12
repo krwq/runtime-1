@@ -49,7 +49,7 @@ namespace System.Security.Cryptography.Tests
             Assert.Throws<ArgumentNullException>("keyName", () => SafeEvpPKeyHandle.OpenPublicKeyFromEngine("dntest", null));
 
             Assert.Throws<ArgumentNullException>("providerName", () => SafeEvpPKeyHandle.OpenKeyFromProvider(null, "first"));
-            Assert.Throws<ArgumentNullException>("keyUri", () => SafeEvpPKeyHandle.OpenKeyFromProvider("dntestprovider", null));
+            Assert.Throws<ArgumentNullException>("keyUri", () => SafeEvpPKeyHandle.OpenKeyFromProvider("dntestprov", null));
         }
 
         [Fact]
@@ -65,7 +65,7 @@ namespace System.Security.Cryptography.Tests
         {
             Assert.ThrowsAny<CryptographicException>(() => SafeEvpPKeyHandle.OpenPrivateKeyFromEngine("dntest", "nonexisting"));
             Assert.ThrowsAny<CryptographicException>(() => SafeEvpPKeyHandle.OpenPublicKeyFromEngine("dntest", "nonexisting"));
-            Assert.ThrowsAny<CryptographicException>(() => SafeEvpPKeyHandle.OpenKeyFromProvider("dntestprovider", "nonexisting"));
+            Assert.ThrowsAny<CryptographicException>(() => SafeEvpPKeyHandle.OpenKeyFromProvider("dntestprov", "nonexisting"));
         }
 
         [Fact]
@@ -138,6 +138,16 @@ namespace System.Security.Cryptography.Tests
                 byte[] decrypted = rsaPri.Decrypt(encrypted, RSAEncryptionPadding.OaepSHA256);
                 Assert.Equal(data, decrypted);
             }
+        }
+
+        [Fact]
+        public static void Provider_OpenExistingPrivateKey()
+        {
+            using SafeEvpPKeyHandle priKeyHandle = SafeEvpPKeyHandle.OpenKeyFromProvider("dntestprov", "first");
+            using RSA priKey = new RSAOpenSsl(priKeyHandle);
+            RSAParameters rsaParams = priKey.ExportParameters(includePrivateParameters: true);
+            Assert.NotNull(rsaParams.D);
+            Assert.Equal(s_rsaPubKey, priKey.ExportRSAPublicKey());
         }
 
         //[Fact]
