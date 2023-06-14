@@ -143,11 +143,27 @@ namespace System.Security.Cryptography.Tests
         [Fact]
         public static void Provider_OpenExistingPrivateKey()
         {
-            using SafeEvpPKeyHandle priKeyHandle = SafeEvpPKeyHandle.OpenKeyFromProvider("dntestprov", "first");
-            using RSA priKey = new RSAOpenSsl(priKeyHandle);
-            RSAParameters rsaParams = priKey.ExportParameters(includePrivateParameters: true);
-            Assert.NotNull(rsaParams.D);
-            Assert.Equal(s_rsaPubKey, priKey.ExportRSAPublicKey());
+            Console.WriteLine("opening key handle");
+            using SafeEvpPKeyHandle priKeyHandle = SafeEvpPKeyHandle.OpenKeyFromProvider("tpm2", "handle:0x81000002");//SafeEvpPKeyHandle.OpenKeyFromProvider("dntestprov", "first");
+            Console.WriteLine("creating RSA from handle");
+            using RSA rsaPri = new RSAOpenSsl(priKeyHandle);
+            //typeof(RSAOpenSsl).GetMethod("SetKey", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).Invoke(rsaPri, new object[] { priKeyHandle });
+            Console.WriteLine("getting key");
+            using RSA rsaBad = RSA.Create(1024);
+
+            byte[] data = new byte[] { 1, 2, 3, 1, 1, 2, 3 };
+            Console.WriteLine("signing");
+            byte[] signature = rsaPri.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+            Console.WriteLine("signing with bad key");
+            byte[] badSignature = rsaBad.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+            Assert.NotEqual(data, signature);
+            Console.WriteLine("verifying good signature");
+            Assert.True(rsaPri.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+            Console.WriteLine("verifying bad signature");
+            Assert.False(rsaPri.VerifyData(data, badSignature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+            // RSAParameters rsaParams = priKey.ExportParameters(includePrivateParameters: true);
+            // Assert.NotNull(rsaParams.D);
+            // Assert.Equal(s_rsaPubKey, priKey.ExportRSAPublicKey());
         }
 
         //[Fact]

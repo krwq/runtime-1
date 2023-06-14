@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+#define OPENSSL_SUPPRESS_DEPRECATED
 #include <string.h>
 #include <openssl/bio.h>
 #include <openssl/params.h>
@@ -8,6 +9,7 @@
 #include <openssl/decoder.h>
 #include <openssl/err.h>
 #include <openssl/provider.h>
+#include <openssl/x509.h>
 
 // static const char* g_keyPath;
 // static int g_keyPathLength;
@@ -127,14 +129,21 @@ static void* dntestprov_store_attach(void* provctx, OSSL_CORE_BIO* bio)
     return ctx_from_bio(BIO_new_from_core_bio(provctx, bio), provctx);
 }
 
+const char* get_decoder_name(OSSL_DECODER_INSTANCE* decoder_inst)
+{
+    OSSL_DECODER* decoder = OSSL_DECODER_INSTANCE_get_decoder(decoder_inst);
+    const char* decoder_name = OSSL_DECODER_get0_name(decoder);
+    return decoder_name;
+}
+
 int dntestprov_decoder_cb(
     OSSL_DECODER_INSTANCE* decoder_inst,
     const OSSL_PARAM* params,
     void* construct_data)
 {
-    struct dntestprov_decoder_cb_data* data = construct_data;
-    printf("dntestprov: dntestprov_decoder_cb\n");
+    printf("dntestprov: dntestprov_decoder_cb(%s, ...)\n", get_decoder_name(decoder_inst));
 
+    struct dntestprov_decoder_cb_data* data = construct_data;
     return data->object_cb(params, data->object_cbarg);
 }
 
@@ -200,7 +209,7 @@ int dntestprov_store_load(
         }
     }
 
-    struct dntestprov_decoder_cb_data data = { .object_cb = object_cb, .object_cbarg = object_cbarg };
+    struct dntestprov_decoder_cb_data data = { .object_cb = object_cb, .object_cbarg = object_cbarg }; // TODO: should this allocate rather than using stack pointer below?
     OSSL_DECODER_CTX_set_construct_data(decoderCtx, &data);
     OSSL_DECODER_CTX_set_passphrase_cb(decoderCtx, pw_cb, pw_cbarg);
 
@@ -262,6 +271,50 @@ static int dntestprov_store_close(void* loaderctx)
     return 1;
 }
 
+static EVP_PKEY* load_priv(BIO* bio)
+{
+    printf("dntestprov: load_priv\n");
+    RSA* rsaKey = d2i_RSAPrivateKey_bio(bio, NULL);
+    if (!rsaKey)
+    {
+        printf("dntestprov: Error loading RSA Private Key\n");
+        return NULL;
+    }
+
+    EVP_PKEY* key = EVP_PKEY_new();
+    if (!EVP_PKEY_assign_RSA(key, rsaKey))
+    {
+        printf("dntestprov: Error assigning RSA Private Key to EVP_PKEY\n");
+        RSA_free(rsaKey);
+        return NULL;
+    }
+
+    return key;
+}
+
+static const EVP_PKEY* dntestprov_load_key(void* loaderctx)
+{
+    printf("dntestprov: dntestprov_load_key\n");
+    // DNTESTPROV_LOADERCTX* ctx = loaderctx;
+
+    // if (ctx == NULL)
+    // {
+    //     printf("dntestprov: ctx is NULL\n");
+    //     return 0;
+    // }
+
+    // return load_priv(ctx->bio);
+    EVP_PKEY* ret = NULL;
+    BIO* bio = BIO_new_mem_buf(g_priRsaKey, sizeof(g_priRsaKey));
+    if (bio != NULL)
+    {
+        ret = load_priv(bio);
+        BIO_free(bio);
+    }
+
+    return ret;
+}
+
 static const OSSL_DISPATCH g_dntestprov_store_funcs[] =
 {
     { OSSL_FUNC_STORE_OPEN, (void(*)(void))dntestprov_store_open },
@@ -278,6 +331,16 @@ static const OSSL_ALGORITHM g_dntestprov_stores[] =
     { NULL, NULL, NULL },
 };
 
+static const OSSL_DISPATCH g_dntestprov_keymgmt_functions[] = {
+    { OSSL_FUNC_KEYMGMT_LOAD, (void (*)(void))dntestprov_load_key },
+    { 0, NULL }
+};
+
+static const OSSL_ALGORITHM g_dntestprov_keymgmt[] = {
+    { "RSA-PSS:RSASSA-PSS", "provider=dntestprov", g_dntestprov_keymgmt_functions },
+    { NULL, NULL, NULL }
+};
+
 static const OSSL_ALGORITHM* dntestprov_query_operation(void* provctx, int operation_id, int* no_cache)
 {
     *no_cache = 0;
@@ -286,7 +349,8 @@ static const OSSL_ALGORITHM* dntestprov_query_operation(void* provctx, int opera
     {
 	    case OSSL_OP_STORE:
 	        return g_dntestprov_stores;
-        // TODO: OSSL_OP_KEYMGMT (operation_id = 10)
+        case OSSL_OP_KEYMGMT:
+            return g_dntestprov_keymgmt;
     }
 
     return NULL;
