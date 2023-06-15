@@ -29,6 +29,12 @@ void print_key_type(EVP_PKEY_CTX *ctx) {
     }
 }
 
+void print_hex(unsigned char *data, size_t length) {
+    for (size_t i = 0; i < length; i++) {
+        printf("%02x", data[i]);
+    }
+}
+
 int main() {
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
@@ -37,7 +43,7 @@ int main() {
     OSSL_STORE_INFO *info = NULL;
     unsigned char *sig = NULL;
     size_t siglen = 1337;
-    unsigned char data[] = "testdata";  // Your arbitrary data
+    unsigned char data[] = "testdata\0";  // Your arbitrary data
 
     // Load the TPM2 provider
     prov = OSSL_PROVIDER_load(NULL, "tpm2");
@@ -47,7 +53,7 @@ int main() {
     }
 
     // Open the store
-    store_ctx = OSSL_STORE_open("handle:0x81000002", NULL, NULL, NULL, NULL);
+    store_ctx = OSSL_STORE_open("handle:0x81000004", NULL, NULL, NULL, NULL);
     if (store_ctx == NULL) {
         fprintf(stderr, "Failed to open store\n");
         return 1;
@@ -111,8 +117,16 @@ int main() {
 
     print_key_type(ctx);
 
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
+    const EVP_MD *md = EVP_sha256();
+
+    EVP_DigestInit_ex(mdctx, md, NULL);
+    EVP_DigestUpdate(mdctx, data, strlen((char *)data) + 1);
+    EVP_DigestFinal_ex(mdctx, hash, NULL);
+
     // Determine the size of the signature
-    if (EVP_PKEY_sign(ctx, NULL, &siglen, data, sizeof(data)) <= 0) {
+    if (EVP_PKEY_sign(ctx, NULL, &siglen, hash, sizeof(hash)) <= 0) {
         ERR_print_errors_fp(stderr);
         fprintf(stderr, "Failed to determine signature size\n");
         return 1;
@@ -127,17 +141,24 @@ int main() {
     }
 
     // Perform the signing operation
-    if (EVP_PKEY_sign(ctx, sig, &siglen, data, sizeof(data)) <= 0) {
+    if (EVP_PKEY_sign(ctx, sig, &siglen, hash, sizeof(hash)) <= 0) {
         ERR_print_errors_fp(stderr);
         fprintf(stderr, "Failed to sign data\n");
         return 1;
     }
 
+    printf("Seems all is good!\n");
+    printf("Hash:\n");
+    print_hex(hash, sizeof(hash));
+    printf("\nSignature\n");
+    print_hex(sig, siglen);
+    printf("\n");
     // At this point, 'sig' contains the signature and 'siglen' is its length
 
     // Clean up
     OPENSSL_free(sig);
     EVP_PKEY_CTX_free(ctx);
+    //EVP_MD_CTX_free(mdctx);
     EVP_PKEY_free(pkey);
     OSSL_STORE_INFO_free(info);
     OSSL_STORE_close(store_ctx);

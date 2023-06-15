@@ -144,10 +144,10 @@ namespace System.Security.Cryptography.Tests
         public static void Provider_OpenExistingPrivateKey()
         {
             Console.WriteLine("opening key handle");
-            using SafeEvpPKeyHandle priKeyHandle = SafeEvpPKeyHandle.OpenKeyFromProvider("tpm2", "handle:0x81000002");//SafeEvpPKeyHandle.OpenKeyFromProvider("dntestprov", "first");
+            using SafeEvpPKeyHandle priKeyHandle = SafeEvpPKeyHandle.OpenKeyFromProvider("tpm2", "handle:0x81000004");//SafeEvpPKeyHandle.OpenKeyFromProvider("dntestprov", "first");
             Console.WriteLine("creating RSA from handle");
-            using RSA rsaPri = new RSAOpenSsl(priKeyHandle);
-            //typeof(RSAOpenSsl).GetMethod("SetKey", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).Invoke(rsaPri, new object[] { priKeyHandle });
+            using RSA rsaPri = new RSAOpenSsl();//new RSAOpenSsl(priKeyHandle);
+            typeof(RSAOpenSsl).GetMethod("SetKey", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).Invoke(rsaPri, new object[] { priKeyHandle });
             Console.WriteLine("getting key");
             using RSA rsaBad = RSA.Create(1024);
 

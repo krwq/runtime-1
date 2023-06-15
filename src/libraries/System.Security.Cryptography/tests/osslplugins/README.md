@@ -24,7 +24,7 @@ Command by default will only list handles but no information about them.
 To get information about specific handle:
 
 ```bash
-tpm2_readpublic -c 0x81000002
+tpm2_readpublic -c 0x81000004
 ```
 
 #### Testing signing with OpenSSL CLI
@@ -33,8 +33,11 @@ tpm2_readpublic -c 0x81000002
 # create testdata file with some content
 echo 'content' > testdata
 
-# sign testdata file and output in testdata.sig
-openssl pkeyutl -provider tpm2 -inkey handle:0x81000002 -sign -rawin -in testdata -out testdata.sig
+# hash data
+cat testdata | openssl dgst -sha256 -binary > testdata.dgst
+
+# sign data
+openssl pkeyutl -provider tpm2 -inkey handle:0x81000004 -sign -pkeyopt rsa_padding_mode:pss -pkeyopt rsa_pss_saltlen:-1 -pkeyopt digest:sha256 -in testdata.dgst -out testdata.sig
 ```
 
 #### Creating keys
@@ -53,14 +56,34 @@ tpm2_createprimary -C o -c primary.ctx -G rsa
 openssl pkeyutl -provider tpm2 -inkey handle:0x81000002 -sign -pkeyopt rsa_padding_mode:pss -pkeyopt rsa_pss_saltlen:-1 -pkeyopt digest:sha256 -in testdata -out testdata.sig
 
 
+
 tpm2_create -G rsa -g sha256 -u key.pub -r key.priv -L policy.txt -a "noda|adminwithpolicy|sign|restricted|fixedtpm|fixedparent|sensitivedataorigin"
 
 
 tpm2_createprimary -C o -g rsapss-sha256 -G rsa -c primary.ctx
 tpm2_create -C primary.ctx -g rsapss-sha256 -G rsa -u key.pub -r key.priv -a "noda|adminwithpolicy|sign|restricted|fixedtpm|fixedparent|sensitivedataorigin"
 
+
+
 # this creates a key
-tpm2_createprimary -C o -g sha256 -G rsa2048:rsapss:null -c primary.ctx -a 'restricted|fixedtpm|fixedparent|sensitivedataorigin|userwithauth|sign'
+tpm2_createprimary -C o -g sha256 -G rsa2048:rsapss:null -c primary.ctx -a 'fixedtpm|fixedparent|sensitivedataorigin|userwithauth|noda|sign'
+# | decrypt?
+# Stores and prints the handle
+tpm2_evictcontrol -C o -c primary.ctx
+# if passed 0x81000000 as last argument it can be forced to use that handle number
+
+# handle should show up here now:
+tpm2_getcap handles-persistent
+
+# to print data info about that handle:
+tpm2_readpublic -c 0x81000004
+
+# ?? untested ?? to get public key
+openssl pkey -provider tpm2 -provider base -inkey handle:0x81000004 -pubout -out testkey.pub
+
+# test handle with CLI
+cat testdata | openssl dgst -sha256 -binary > testdata.dgst
+openssl pkeyutl -provider tpm2 -inkey handle:0x81000004 -sign -pkeyopt rsa_padding_mode:pss -pkeyopt rsa_pss_saltlen:-1 -pkeyopt digest:sha256 -in testdata.dgst -out testdata.sig
 
 # not working
 tpm2_create -C primary.ctx -g sha256 -G rsa2048:rsapss:null -u key.pub -r key.priv -a 'restricted|fixedtpm|fixedparent|sensitivedataorigin|userwithauth|sign'
