@@ -287,6 +287,7 @@ const EVP_CIPHER* EVP_chacha20_poly1305(void);
     REQUIRED_FUNCTION(ERR_peek_error_line) \
     REQUIRED_FUNCTION(ERR_peek_last_error) \
     FALLBACK_FUNCTION(ERR_put_error) \
+    REQUIRED_FUNCTION(ERR_print_errors_fp) \
     REQUIRED_FUNCTION(ERR_reason_error_string) \
     LIGHTUP_FUNCTION(ERR_set_debug) \
     LIGHTUP_FUNCTION(ERR_set_error) \
@@ -447,6 +448,7 @@ const EVP_CIPHER* EVP_chacha20_poly1305(void);
     LIGHTUP_FUNCTION(OSSL_STORE_INFO_get1_PKEY) \
     LIGHTUP_FUNCTION(OSSL_STORE_INFO_get1_PUBKEY) \
     LIGHTUP_FUNCTION(OSSL_STORE_load) \
+    LIGHTUP_FUNCTION(OSSL_STORE_open) \
     LIGHTUP_FUNCTION(OSSL_STORE_open_ex) \
     REQUIRED_FUNCTION(PKCS8_PRIV_KEY_INFO_free) \
     REQUIRED_FUNCTION(PEM_read_bio_PKCS7) \
@@ -787,6 +789,7 @@ FOR_ALL_OPENSSL_FUNCTIONS
 #define ERR_peek_error_line ERR_peek_error_line_ptr
 #define ERR_peek_last_error ERR_peek_last_error_ptr
 #define ERR_put_error ERR_put_error_ptr
+#define ERR_print_errors_fp ERR_print_errors_fp_ptr
 #define ERR_reason_error_string ERR_reason_error_string_ptr
 #define ERR_set_debug ERR_set_debug_ptr
 #define ERR_set_error ERR_set_error_ptr
@@ -947,6 +950,7 @@ FOR_ALL_OPENSSL_FUNCTIONS
 #define OSSL_STORE_INFO_get1_PKEY OSSL_STORE_INFO_get1_PKEY_ptr
 #define OSSL_STORE_INFO_get1_PUBKEY OSSL_STORE_INFO_get1_PUBKEY_ptr
 #define OSSL_STORE_load OSSL_STORE_load_ptr
+#define OSSL_STORE_open OSSL_STORE_open_ptr
 #define OSSL_STORE_open_ex OSSL_STORE_open_ex_ptr
 #define PKCS8_PRIV_KEY_INFO_free PKCS8_PRIV_KEY_INFO_free_ptr
 #define PEM_read_bio_PKCS7 PEM_read_bio_PKCS7_ptr
@@ -1221,6 +1225,7 @@ FOR_ALL_OPENSSL_FUNCTIONS
 #if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_3_0_RTM
 
 #define ERR_put_error local_ERR_put_error
+#define ERR_print_errors_fp local_ERR_print_errors_fp
 
 #elif OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0_RTM
 

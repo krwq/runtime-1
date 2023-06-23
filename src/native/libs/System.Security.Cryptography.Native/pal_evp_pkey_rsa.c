@@ -235,38 +235,90 @@ int32_t CryptoNative_RsaSignHash(EVP_PKEY* pkey,
     assert(padding >= RsaPaddingPkcs1 && padding <= RsaPaddingOaepOrPss);
     assert(digest != NULL || padding == RsaPaddingPkcs1);
 
+    printf("CryptoNative_RsaSignHash(pkey=%p, hashlen=%d, destLen=%d)\n", (void*)pkey, hashLen, destinationLen);
     ERR_clear_error();
-
+    printf("CryptoNative_RsaSignHash: new ctx\n");
     EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(pkey, NULL);
 
     int ret = -1;
 
-    if (ctx == NULL || EVP_PKEY_sign_init(ctx) <= 0)
+    if (ctx == NULL)
     {
+        printf("CryptoNative_RsaSignHash: ctx == NULL\n");
+        ERR_print_errors_fp(stdout);
         goto done;
     }
 
+    printf("CryptoNative_RsaSignHash: init\n");
+
+    if (EVP_PKEY_sign_init(ctx) <= 0)
+    {
+        ERR_print_errors_fp(stdout);
+        goto done;
+    }
+
+    printf("CryptoNative_RsaSignHash: configuring signature\n");
     if (!ConfigureSignature(ctx, padding, digest))
     {
         goto done;
     }
 
+    ERR_print_errors_fp(stdout);
+    printf("CryptoNative_RsaSignHash: EVP_PKEY_get0_RSA\n");
     // This check may no longer be needed on OpenSSL 3.0
-    {
-        const RSA* rsa = EVP_PKEY_get0_RSA(pkey);
+    // {
+    //     const RSA* rsa = EVP_PKEY_get0_RSA(pkey);
 
-        if (rsa == NULL || HasNoPrivateKey(rsa))
+    //     printf("CryptoNative_RsaSignHash: HasNoPrivateKey\n");
+    //     if (rsa == NULL || HasNoPrivateKey(rsa))
+    //     {
+    //         printf("CryptoNative_RsaSignHash: checks - error\n");
+    //         ERR_PUT_error(ERR_LIB_RSA, RSA_F_RSA_NULL_PRIVATE_DECRYPT, RSA_R_VALUE_MISSING, __FILE__, __LINE__);
+    //         goto done;
+    //     }
+    // }
+
+    printf("CryptoNative_RsaSignHash: doing signing, dest_len=%d, hash_len=%d\n", destinationLen, hashLen);
+    size_t written = Int32ToSizeT(destinationLen);
+    size_t sigSize = 0;
+    if (EVP_PKEY_sign(ctx, NULL, &sigSize, hash, Int32ToSizeT(hashLen)) > 0)
+    {
+        printf("CryptoNative_RsaSignHash: determined signature size=%d\n", (int)sigSize);
+        if (written < sigSize)
         {
-            ERR_PUT_error(ERR_LIB_RSA, RSA_F_RSA_NULL_PRIVATE_DECRYPT, RSA_R_VALUE_MISSING, __FILE__, __LINE__);
-            goto done;
+            printf("CryptoNative_RsaSignHash: insufficient buffer=%d\n", (int)written);
+            sigSize = written;
         }
     }
-
-    size_t written = Int32ToSizeT(destinationLen);
-
-    if (EVP_PKEY_sign(ctx, destination, &written, hash, Int32ToSizeT(hashLen)) > 0)
+    else
     {
-        ret = SizeTToInt32(written);
+        printf("CryptoNative_RsaSignHash: unable to determine signature size=%d\n", (int)sigSize);
+        ERR_print_errors_fp(stdout);
+        sigSize = written;
+    }
+
+    printf("CryptoNative_RsaSignHash: Error sanity check\n");
+    ERR_print_errors_fp(stdout);
+    ERR_clear_error();
+    size_t hashLenSizeT = Int32ToSizeT(hashLen);
+
+    printf("CryptoNative_RsaSignHash: configuring signature\n");
+    if (!ConfigureSignature(ctx, padding, digest))
+    {
+        goto done;
+    }
+
+    printf("CryptoNative_RsaSignHash: EVP_PKEY_sign(sigSize=%d, hashLen=%zu)\n", (int)(sigSize), hashLenSizeT);
+    int signRet = EVP_PKEY_sign(ctx, destination, &sigSize, hash, hashLenSizeT);
+    if (signRet > 0)
+    {
+        printf("CryptoNative_RsaSignHash: actual signature size=%d, error=%d\n", (int)(sigSize), signRet);
+        ret = SizeTToInt32(sigSize);
+    }
+    else
+    {
+        printf("CryptoNative_RsaSignHash: EVP_PKEY_sign failed=%d, error=%d\n", (int)sigSize, signRet);
+        ERR_print_errors_fp(stdout);
     }
 
 done:
@@ -274,6 +326,8 @@ done:
     {
         EVP_PKEY_CTX_free(ctx);
     }
+
+    printf("CryptoNative_RsaSignHash: done signing, ret = %d\n", ret);
 
     return ret;
 }

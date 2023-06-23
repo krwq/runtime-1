@@ -38,6 +38,7 @@ void print_hex(unsigned char *data, size_t length) {
 int main() {
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
+    OSSL_LIB_CTX* libCtx = NULL; //OSSL_LIB_CTX_new();
     OSSL_PROVIDER *prov = NULL;
     OSSL_STORE_CTX *store_ctx = NULL;
     OSSL_STORE_INFO *info = NULL;
@@ -126,6 +127,7 @@ int main() {
     EVP_DigestFinal_ex(mdctx, hash, NULL);
 
     // Determine the size of the signature
+    printf("sizeof(hash)=%d\n", sizeof(hash));
     if (EVP_PKEY_sign(ctx, NULL, &siglen, hash, sizeof(hash)) <= 0) {
         ERR_print_errors_fp(stderr);
         fprintf(stderr, "Failed to determine signature size\n");
@@ -154,6 +156,17 @@ int main() {
     print_hex(sig, siglen);
     printf("\n");
     // At this point, 'sig' contains the signature and 'siglen' is its length
+
+    BIO* pubKeyBio = BIO_new_file("testprovider.exported.pub", "w");
+    if (pubKeyBio == NULL) {
+        printf("Failed to open testprovider.exported.pub file\n");
+        return 1;
+    }
+
+    if (PEM_write_bio_PUBKEY(pubKeyBio, pkey) != 1) {
+        fprintf(stderr, "Failed to write public key to file\n");
+        return 1;
+    }
 
     // Clean up
     OPENSSL_free(sig);

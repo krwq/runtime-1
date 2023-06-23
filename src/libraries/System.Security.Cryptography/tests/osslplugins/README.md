@@ -38,6 +38,12 @@ cat testdata | openssl dgst -sha256 -binary > testdata.dgst
 
 # sign data
 openssl pkeyutl -provider tpm2 -inkey handle:0x81000004 -sign -pkeyopt rsa_padding_mode:pss -pkeyopt rsa_pss_saltlen:-1 -pkeyopt digest:sha256 -in testdata.dgst -out testdata.sig
+
+# get public key (PEM)
+openssl pkey -provider tpm2 -pubout -in handle:0x81000004 -out testkey.pub
+
+# verify data
+openssl pkeyutl -verify -in testdata.dgst -sigfile testdata.sig -inkey testkey.pub -pubin -pkeyopt rsa_padding_mode:pss -pkeyopt rsa_pss_saltlen:-2 -pkeyopt digest:sha256
 ```
 
 #### Creating keys
@@ -80,6 +86,7 @@ tpm2_readpublic -c 0x81000004
 
 # ?? untested ?? to get public key
 openssl pkey -provider tpm2 -provider base -inkey handle:0x81000004 -pubout -out testkey.pub
+openssl rsa -provider tpm2 -pubout -inkey handle:0x81000004 -out testkey.pub
 
 # test handle with CLI
 cat testdata | openssl dgst -sha256 -binary > testdata.dgst

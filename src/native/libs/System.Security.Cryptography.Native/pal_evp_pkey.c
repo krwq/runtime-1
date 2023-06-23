@@ -30,6 +30,7 @@ EVP_PKEY* CryptoNative_EvpPKeyDuplicate(EVP_PKEY* currentKey, int32_t algId)
     }
 
     EVP_PKEY* newKey = EVP_PKEY_new();
+    printf("CryptoNative_EvpPKeyDuplicate(%p) => %p\n", (void*)currentKey, (void*)newKey);
 
     if (newKey == NULL)
     {
@@ -69,6 +70,7 @@ void CryptoNative_EvpPkeyDestroy(EVP_PKEY* pkey)
 {
     if (pkey != NULL)
     {
+        printf("CryptoNative_EvpPkeyDestroy(%p)\n", (void*)pkey);
         EVP_PKEY_free(pkey);
     }
 }
@@ -80,7 +82,9 @@ int32_t CryptoNative_EvpPKeySize(EVP_PKEY* pkey)
     // ENGINE or OSSL_PROVIDER populate the queue in their implementation,
     // but the calling code does not check for one.
     assert(pkey != NULL);
-    return EVP_PKEY_get_size(pkey);
+    int32_t ret = EVP_PKEY_get_size(pkey);
+    printf("CryptoNative_EvpPKeySize(%p) => %d\n", (void*)pkey, ret);
+    return ret;
 }
 
 int32_t CryptoNative_UpRefEvpPkey(EVP_PKEY* pkey)
@@ -96,6 +100,8 @@ int32_t CryptoNative_UpRefEvpPkey(EVP_PKEY* pkey)
 
 static bool CheckKey(EVP_PKEY* key, int32_t algId, int32_t (*check_func)(EVP_PKEY_CTX*))
 {
+    printf("CheckKey(%p)\n", (void*)key);
+
     if (algId != NID_undef && EVP_PKEY_get_base_id(key) != algId)
     {
         ERR_put_error(ERR_LIB_EVP, 0, EVP_R_UNSUPPORTED_ALGORITHM, __FILE__, __LINE__);
@@ -333,33 +339,42 @@ EVP_PKEY* CryptoNative_LoadKeyFromProvider(const char* providerName, const char*
 #ifdef NEED_OPENSSL_3_0
     EVP_PKEY* ret = NULL;
 
-    OSSL_LIB_CTX* libCtx = OSSL_LIB_CTX_new();
+    OSSL_LIB_CTX* libCtx = NULL; //OSSL_LIB_CTX_new(); // TODO: does this matter?
     OSSL_PROVIDER* prov = NULL;
     OSSL_STORE_CTX* store = NULL;
     OSSL_STORE_INFO* firstPubKey = NULL;
 
-    if (libCtx == NULL)
-        goto end;
+    // if (libCtx == NULL)
+    //     goto end;
 
     prov = OSSL_PROVIDER_load(libCtx, providerName);
 
     if (prov == NULL)
+    {
+        printf("CryptoNative_LoadKeyFromProvider: Failed to load `%s` provider\n", providerName);
         goto end;
+    }
 
-    store = OSSL_STORE_open_ex(keyUri, libCtx, NULL, NULL, NULL, NULL, NULL, NULL);
+    store = OSSL_STORE_open(keyUri, NULL, NULL, NULL, NULL);//OSSL_STORE_open_ex(keyUri, libCtx, NULL, NULL, NULL, NULL, NULL, NULL);
 
     if (store == NULL)
+    {
+        printf("CryptoNative_LoadKeyFromProvider: Failed to open store\n");
         goto end;
+    }
 
     // Quite similar to loading a single certificate from a PFX, if we find a private key that wins.
     // Otherwise, the first public key wins.
     // Otherwise, we'll push a keyload error
     while (ret == NULL && !OSSL_STORE_eof(store))
     {
+        printf("CryptoNative_LoadKeyFromProvider: OSSL_STORE_load\n");
         OSSL_STORE_INFO* info = OSSL_STORE_load(store);
 
         if (info == NULL)
         {
+            printf("CryptoNative_LoadKeyFromProvider: no more data?\n");
+            ERR_print_errors_fp(stdout);
             continue;
         }
 
@@ -367,50 +382,66 @@ EVP_PKEY* CryptoNative_LoadKeyFromProvider(const char* providerName, const char*
 
         if (type == OSSL_STORE_INFO_PKEY)
         {
+            printf("CryptoNative_LoadKeyFromProvider: OSSL_STORE_INFO_PKEY\n");
             ret = OSSL_STORE_INFO_get1_PKEY(info);
+            break;
         }
         else if (type == OSSL_STORE_INFO_PUBKEY && firstPubKey == NULL)
         {
+            printf("CryptoNative_LoadKeyFromProvider: OSSL_STORE_INFO_PUBKEY\n");
             firstPubKey = info;
             // skip the free
             continue;
         }
 
+        printf("CryptoNative_LoadKeyFromProvider: OSSL_STORE_INFO_free\n");
         OSSL_STORE_INFO_free(info);
     }
 
     if (ret == NULL && firstPubKey != NULL)
     {
+        printf("CryptoNative_LoadKeyFromProvider: OSSL_STORE_INFO_get1_PUBKEY\n");
         ret = OSSL_STORE_INFO_get1_PUBKEY(firstPubKey);
     }
 
     if (ret == NULL)
     {
+        printf("CryptoNative_LoadKeyFromProvider: ret = NULL\n");
         ERR_clear_error();
         ERR_put_error(ERR_LIB_NONE, 0, EVP_R_NO_KEY_SET, __FILE__, __LINE__);
+    }
+    else
+    {
+        printf("CryptoNative_LoadKeyFromProvider: EVP_PKEY_up_ref(%p)\n", (void*)ret);
+        EVP_PKEY_up_ref(ret);
     }
 
 end:
     if (firstPubKey != NULL)
     {
-        OSSL_STORE_INFO_free(firstPubKey);
+        // TODO: find better way
+        //OSSL_STORE_INFO_free(firstPubKey);
     }
 
     if (store != NULL)
     {
-        OSSL_STORE_close(store);
+        // TODO: find better way
+        //OSSL_STORE_close(store);
     }
 
     if (prov != NULL)
     {
-        OSSL_PROVIDER_unload(prov);
+        // TODO: find better way
+        //OSSL_PROVIDER_unload(prov);
     }
 
     if (libCtx != NULL)
     {
-        OSSL_LIB_CTX_free(libCtx);
+        // TODO: find better way
+        //OSSL_LIB_CTX_free(libCtx);
     }
 
+    printf("CryptoNative_LoadKeyFromProvider(%s, %s)=>%p\n", providerName, keyUri, (void*)ret);
     return ret;
 #else
     (void)providerName;

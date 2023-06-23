@@ -782,13 +782,19 @@ namespace System.Security.Cryptography
         {
             Debug.Assert(!string.IsNullOrEmpty(hashAlgorithm.Name));
             Debug.Assert(padding != null);
+
+            Console.WriteLine("TrySignHash: start");
             ValidatePadding(padding);
+            Console.WriteLine("TrySignHash: padding validated");
 
             signature = null;
 
             IntPtr digestAlgorithm = Interop.Crypto.HashAlgorithmToEvp(hashAlgorithm.Name);
+            Console.WriteLine("TrySignHash: got digest algorithm");
             SafeEvpPKeyHandle key = GetKey();
+            Console.WriteLine("TrySignHash: got key");
             int bytesRequired = Interop.Crypto.EvpPKeySize(key);
+            Console.WriteLine($"TrySignHash: got key size ({bytesRequired})");
 
             if (allocateSignature)
             {
@@ -802,9 +808,11 @@ namespace System.Security.Cryptography
                 return false;
             }
 
+            Console.WriteLine("TrySignHash: trying to sign hash");
             int written = Interop.Crypto.RsaSignHash(key, padding.Mode, digestAlgorithm, hash, destination);
             Debug.Assert(written == bytesRequired);
             bytesWritten = written;
+            Console.WriteLine("TrySignHash: done signing");
 
             return true;
         }
