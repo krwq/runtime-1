@@ -3,10 +3,13 @@
 
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography.EcDsa.Tests;
 using System.Security.Cryptography.X509Certificates.Tests;
 using Test.Cryptography;
 using Xunit;
+using Tpm2Lib;
+using static Tpm2Lib.Csp;
 
 namespace System.Security.Cryptography.Tests
 {
@@ -193,6 +196,35 @@ namespace System.Security.Cryptography.Tests
             // Assert.Equal(s_rsaPubKey, priKey.ExportRSAPublicKey());
         }
 
+        [Fact]
+        public static void Engine_OpenExistingTPMPrivateKeyUsingTssMsr()
+        {
+            Console.WriteLine("connecting to TPM");
+            Tpm2Device device = new LinuxTpmDevice();
+            device.Connect();
+            Tpm2 tpm = new Tpm2(device);
+
+            Console.WriteLine("opening handle");
+            TpmHandle handle = TpmHandle.Persistent(0x81000004);
+            RSA pri = new RSATssMsr(tpm, handle);
+            Console.WriteLine("getting key");
+            using RSA bad = RSA.Create();
+
+            byte[] data = new byte[] { 1, 2, 3, 1, 1, 2, 3 };
+            Console.WriteLine("signing");
+            byte[] signature = pri.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+            Console.WriteLine("signing with bad key");
+            byte[] badSignature = bad.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+            Assert.NotEqual(data, signature);
+            Console.WriteLine("verifying good signature");
+            Assert.True(pri.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+            Console.WriteLine("verifying bad signature");
+            Assert.False(pri.VerifyData(data, badSignature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+            // RSAParameters rsaParams = priKey.ExportParameters(includePrivateParameters: true);
+            // Assert.NotNull(rsaParams.D);
+            // Assert.Equal(s_rsaPubKey, priKey.ExportRSAPublicKey());
+        }
+
         //[Fact]
         //public static void UseThoseKeys()
         //{
@@ -241,4 +273,198 @@ namespace System.Security.Cryptography.Tests
         //     SafeEvpPKeyHandle.OpenKeyFromProvider("dntestprov", "cert").Dispose();
         // }
     }
+
+    public class RSATssMsr : RSA
+    {
+        private Tpm2 _tpm;
+        private TpmHandle _keyHandle;
+
+        public RSATssMsr(Tpm2 tpm, TpmHandle keyHandle)
+        {
+            _tpm = tpm;
+            _keyHandle = keyHandle;
+        }
+
+        public override RSAParameters ExportParameters(bool includePrivateParameters) => throw new NotImplementedException();
+        public override void ImportParameters(RSAParameters parameters) => throw new NotImplementedException();
+        public unsafe override byte[] SignHash(byte[] hash, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
+        {
+            // Convert the hash to a TpmHash.
+            TpmAlgId algId = MapHashAlgorithm(hashAlgorithm);
+
+            TpmHash tpmHash = new TpmHash(algId, hash);
+
+            if (!padding.Equals(RSASignaturePadding.Pss))
+            {
+                throw new Exception("Only PSS padding is supported.");
+            }
+
+            // Sign the hash.
+            ISignatureUnion signatureUnion = _tpm.Sign(_keyHandle, tpmHash, null, TpmHashCheck.Null());
+
+            // Convert the signature to a byte array.
+            SignatureRsassa signature = signatureUnion as SignatureRsassa;
+            if (signature == null)
+            {
+                throw new CryptographicException("Invalid signature.");
+            }
+            return signature.sig;
+        }
+
+        private static TpmAlgId MapHashAlgorithm(HashAlgorithmName hashAlgorithm)
+        {
+            switch (hashAlgorithm.Name)
+            {
+                case "SHA1":
+                    return TpmAlgId.Sha1;
+                case "SHA256":
+                    return TpmAlgId.Sha256;
+                // Add more cases here for other hash algorithms.
+                default:
+                    throw new CryptographicException("Unsupported hash algorithm.");
+            }
+        }
+    }
+
+    //class RSAEsys : RSA
+    //{
+    //    private EsysContextHandle _context;
+    //    private uint _handle;
+    //    public RSAEsys(uint handle)
+    //    {
+    //        _handle = handle;
+    //        Esys.Esys_Initialize(out _context, IntPtr.Zero, IntPtr.Zero);
+    //    }
+
+    //    public override RSAParameters ExportParameters(bool includePrivateParameters) => throw new NotImplementedException();
+    //    public override void ImportParameters(RSAParameters parameters) => throw new NotImplementedException();
+    //    public unsafe override byte[] SignHash(byte[] hash, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
+    //    {
+    //        if (hash.Length > 256)
+    //        {
+    //            throw new Exception("TODO: up to 256 bytes");
+    //        }
+
+    //        Esys.TPM2B_DIGEST digest = new Esys.TPM2B_DIGEST
+    //        {
+    //            size = (ushort)hash.Length,
+    //        };
+
+    //        fixed (byte* hashPtr = hash)
+    //        {
+    //            Buffer.MemoryCopy(hashPtr, digest.buffer, digest.size, hash.Length);
+    //        }
+
+    //        Esys.TPMT_SIG_SCHEME inScheme = new Esys.TPMT_SIG_SCHEME
+    //        {
+    //            scheme = Esys.TPM2_ALG_RSASSA,
+    //            details = new TPMU_SIG_SCHEME
+    //            {
+    //                rsassa = new TPMS_SCHEME_RSASSA
+    //                {
+    //                    hashAlg = TPM2_ALG_SHA256
+    //                }
+    //            }
+    //        };
+
+    //        TPMT_TK_HASHCHECK validation = new TPMT_TK_HASHCHECK
+    //        {
+    //            tag = TPM2_ST_HASHCHECK,
+    //            hierarchy = TPM2_RH_OWNER,
+    //            digest = new TPM2B_DIGEST()
+    //        };
+
+    //        IntPtr signaturePtr;
+    //        uint result = Esys.Esys_Sign(_context, _handle, 0, 0, 0, ref digest, ref inScheme, ref validation, out signaturePtr);
+    //        if (result != TPM2_RC_SUCCESS)
+    //        {
+    //            throw new Exception($"Esys_Sign failed with error code: {result}");
+    //        }
+
+    //        TPM2B_PUBLIC_KEY_RSA signature = Marshal.PtrToStructure< >(signaturePtr);
+
+    //        byte[] signatureBytes = new byte[signature.size];
+    //        Marshal.Copy(signature.buffer, signatureBytes, 0, signature.size);
+    //        Esys.Esys_Free(signaturePtr);
+
+    //        return signatureBytes;
+    //    }
+    //}
+
+    //public class EsysContextHandle : SafeHandle
+    //{
+    //    private EsysContextHandle() : base(IntPtr.Zero, true) { }
+
+    //    public override bool IsInvalid => handle == IntPtr.Zero;
+
+    //    protected override bool ReleaseHandle()
+    //    {
+    //        Esys.Esys_Free(ref handle);
+    //        return true;
+    //    }
+    //}
+
+    //public static class Esys
+    //{
+    //    [StructLayout(LayoutKind.Sequential)]
+    //    public unsafe struct TPM2B_DIGEST
+    //    {
+    //        public ushort size;
+    //        // TODO either us max size of all hash algos, ideally we should use span and dynamically allocate
+    //        public fixed byte buffer[256];
+    //    }
+
+    //    [StructLayout(LayoutKind.Sequential)]
+    //    public struct TPMT_SIG_SCHEME
+    //    {
+    //        public ushort scheme;
+    //        public TPMU_SIG_SCHEME details;
+    //    }
+
+    //    [StructLayout(LayoutKind.Sequential)]
+    //    public struct TPMU_SIG_SCHEME
+    //    {
+    //        public TPMS_SCHEME_HASH rsassa;
+    //    }
+
+    //    [StructLayout(LayoutKind.Sequential)]
+    //    public struct TPMS_SCHEME_HASH
+    //    {
+    //        public ushort hashAlg;
+    //    }
+
+    //    [StructLayout(LayoutKind.Sequential)]
+    //    public struct TPMT_TK_HASHCHECK
+    //    {
+    //        public ushort tag;
+    //        public ushort hierarchy;
+    //        public TPM2B_DIGEST digest;
+    //    }
+
+    //    const string Tss2Library = "tss2-esys"; // The name of the TSS2 library
+
+    //    [DllImport(Tss2Library)]
+    //    public static extern uint Esys_Initialize(out EsysContextHandle esysContext, IntPtr tctiContext, IntPtr abiVersion);
+
+    //    [DllImport(Tss2Library)]
+    //    public static extern void Esys_Free(ref IntPtr esysContext);
+
+    //    [DllImport(Tss2Library)]
+    //    public static extern uint Esys_StartAuthSession(EsysContextHandle esysContext, uint tpmKey, uint bind, IntPtr nonceCaller, IntPtr encryptedSalt, uint sessionType, IntPtr symmetric, uint authHash, out uint sessionHandle);
+
+    //    [DllImport(Tss2Library)]
+    //    public static unsafe extern uint Esys_Sign(
+    //        EsysContextHandle esysContext,
+    //        uint keyHandle,
+    //        uint shandle1,
+    //        uint shandle2,
+    //        uint shandle3,
+    //        TPM2B_DIGEST* digest,
+    //        TPMT_SIG_SCHEME* inScheme,
+    //        TPMT_TK_HASHCHECK* validation,
+    //        IntPtr* signature
+    //);
+
+    //    // Define other necessary functions...
+    //}
 }
