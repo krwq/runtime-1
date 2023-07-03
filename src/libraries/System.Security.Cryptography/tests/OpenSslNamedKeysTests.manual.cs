@@ -166,6 +166,33 @@ namespace System.Security.Cryptography.Tests
             // Assert.Equal(s_rsaPubKey, priKey.ExportRSAPublicKey());
         }
 
+        [Fact]
+        public static void Engine_OpenExistingTPMPrivateKey()
+        {
+            Console.WriteLine("opening key handle");
+            using SafeEvpPKeyHandle priKeyHandle = SafeEvpPKeyHandle.OpenPrivateKeyFromEngine("tpm2tss", "0x81000007");
+            Console.WriteLine("creating RSA from handle");
+            using ECDsa ecdsaPri = new ECDsaOpenSsl(priKeyHandle);//new RSAOpenSsl(priKeyHandle); // 
+            //typeof(RSAOpenSsl).GetMethod("SetKey", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).Invoke(rsaPri, new object[] { priKeyHandle });
+            Console.WriteLine("getting key");
+            using ECDsa ecdsaBad = ECDsa.Create();
+            ecdsaBad.KeySize = ecdsaPri.KeySize;
+
+            byte[] data = new byte[] { 1, 2, 3, 1, 1, 2, 3 };
+            Console.WriteLine("signing");
+            byte[] signature = ecdsaPri.SignData(data, HashAlgorithmName.SHA256);
+            Console.WriteLine("signing with bad key");
+            byte[] badSignature = ecdsaBad.SignData(data, HashAlgorithmName.SHA256);
+            Assert.NotEqual(data, signature);
+            Console.WriteLine("verifying good signature");
+            Assert.True(ecdsaPri.VerifyData(data, signature, HashAlgorithmName.SHA256));
+            Console.WriteLine("verifying bad signature");
+            Assert.False(ecdsaPri.VerifyData(data, badSignature, HashAlgorithmName.SHA256));
+            // RSAParameters rsaParams = priKey.ExportParameters(includePrivateParameters: true);
+            // Assert.NotNull(rsaParams.D);
+            // Assert.Equal(s_rsaPubKey, priKey.ExportRSAPublicKey());
+        }
+
         //[Fact]
         //public static void UseThoseKeys()
         //{

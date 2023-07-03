@@ -280,22 +280,22 @@ int32_t CryptoNative_RsaSignHash(EVP_PKEY* pkey,
 
     printf("CryptoNative_RsaSignHash: doing signing, dest_len=%d, hash_len=%d\n", destinationLen, hashLen);
     size_t written = Int32ToSizeT(destinationLen);
-    size_t sigSize = 0;
-    if (EVP_PKEY_sign(ctx, NULL, &sigSize, hash, Int32ToSizeT(hashLen)) > 0)
-    {
-        printf("CryptoNative_RsaSignHash: determined signature size=%d\n", (int)sigSize);
-        if (written < sigSize)
-        {
-            printf("CryptoNative_RsaSignHash: insufficient buffer=%d\n", (int)written);
-            sigSize = written;
-        }
-    }
-    else
-    {
-        printf("CryptoNative_RsaSignHash: unable to determine signature size=%d\n", (int)sigSize);
-        ERR_print_errors_fp(stdout);
-        sigSize = written;
-    }
+    // size_t sigSize = 0;
+    // if (EVP_PKEY_sign(ctx, NULL, &sigSize, hash, Int32ToSizeT(hashLen)) > 0)
+    // {
+    //     printf("CryptoNative_RsaSignHash: determined signature size=%d\n", (int)sigSize);
+    //     if (written < sigSize)
+    //     {
+    //         printf("CryptoNative_RsaSignHash: insufficient buffer=%d\n", (int)written);
+    //         sigSize = written;
+    //     }
+    // }
+    // else
+    // {
+    //     printf("CryptoNative_RsaSignHash: unable to determine signature size=%d\n", (int)sigSize);
+    //     ERR_print_errors_fp(stdout);
+    //     sigSize = written;
+    // }
 
     printf("CryptoNative_RsaSignHash: Error sanity check\n");
     ERR_print_errors_fp(stdout);
@@ -308,16 +308,21 @@ int32_t CryptoNative_RsaSignHash(EVP_PKEY* pkey,
         goto done;
     }
 
-    printf("CryptoNative_RsaSignHash: EVP_PKEY_sign(sigSize=%d, hashLen=%zu)\n", (int)(sigSize), hashLenSizeT);
-    int signRet = EVP_PKEY_sign(ctx, destination, &sigSize, hash, hashLenSizeT);
+    printf("CryptoNative_RsaSignHash: EVP_PKEY_sign(sigSize=%zu, hashLen=%zu)\n", written, hashLenSizeT);
+    int signRet = EVP_PKEY_sign(ctx, destination, &written, hash, hashLenSizeT);
     if (signRet > 0)
     {
-        printf("CryptoNative_RsaSignHash: actual signature size=%d, error=%d\n", (int)(sigSize), signRet);
-        ret = SizeTToInt32(sigSize);
+        printf("CryptoNative_RsaSignHash: actual signature size=%zu, signRet=%d\n", written, signRet);
+        if (written == 0)
+        {
+            ERR_print_errors_fp(stdout);
+        }
+
+        ret = SizeTToInt32(written);
     }
     else
     {
-        printf("CryptoNative_RsaSignHash: EVP_PKEY_sign failed=%d, error=%d\n", (int)sigSize, signRet);
+        printf("CryptoNative_RsaSignHash: EVP_PKEY_sign failed=%zu, signRet=%d\n", written, signRet);
         ERR_print_errors_fp(stdout);
     }
 

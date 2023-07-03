@@ -28,9 +28,14 @@ if [ "$1" != "run" ]; then
         dotnet build
     )
 else
+    # (
+    #     set -e
+    #     cd "$ssc_tests_path"
+    #     dotnet test --filter "FullyQualifiedName=System.Security.Cryptography.Tests.OpenSslNamedKeysTests.Provider_OpenExistingPrivateKey"
+    # )
     (
         set -e
         cd "$ssc_tests_path"
-        dotnet test --filter "FullyQualifiedName=System.Security.Cryptography.Tests.OpenSslNamedKeysTests.Provider_OpenExistingPrivateKey"
+        dotnet test --filter "FullyQualifiedName=System.Security.Cryptography.Tests.OpenSslNamedKeysTests.Engine_OpenExistingTPMPrivateKey"
     )
 fi

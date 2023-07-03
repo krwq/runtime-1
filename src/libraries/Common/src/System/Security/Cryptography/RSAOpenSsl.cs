@@ -810,7 +810,7 @@ namespace System.Security.Cryptography
 
             Console.WriteLine("TrySignHash: trying to sign hash");
             int written = Interop.Crypto.RsaSignHash(key, padding.Mode, digestAlgorithm, hash, destination);
-            Debug.Assert(written == bytesRequired);
+            Debug.Assert(written == bytesRequired, $"written({written}) != bytesRequired({bytesRequired})");
             bytesWritten = written;
             Console.WriteLine("TrySignHash: done signing");
 

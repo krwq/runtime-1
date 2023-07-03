@@ -344,8 +344,8 @@ EVP_PKEY* CryptoNative_LoadKeyFromProvider(const char* providerName, const char*
     OSSL_STORE_CTX* store = NULL;
     OSSL_STORE_INFO* firstPubKey = NULL;
 
-    // if (libCtx == NULL)
-    //     goto end;
+    if (libCtx == NULL)
+        goto end;
 
     prov = OSSL_PROVIDER_load(libCtx, providerName);
 
@@ -356,7 +356,6 @@ EVP_PKEY* CryptoNative_LoadKeyFromProvider(const char* providerName, const char*
     }
 
     store = OSSL_STORE_open(keyUri, NULL, NULL, NULL, NULL);//OSSL_STORE_open_ex(keyUri, libCtx, NULL, NULL, NULL, NULL, NULL, NULL);
-
     if (store == NULL)
     {
         printf("CryptoNative_LoadKeyFromProvider: Failed to open store\n");
@@ -429,11 +428,11 @@ end:
         //OSSL_STORE_close(store);
     }
 
-    if (prov != NULL)
-    {
-        // TODO: find better way
-        //OSSL_PROVIDER_unload(prov);
-    }
+    // if (prov != NULL)
+    // {
+    //     // TODO: find better way
+    //     //OSSL_PROVIDER_unload(prov);
+    // }
 
     if (libCtx != NULL)
     {

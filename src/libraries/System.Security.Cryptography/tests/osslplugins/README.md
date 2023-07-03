@@ -27,6 +27,12 @@ To get information about specific handle:
 tpm2_readpublic -c 0x81000004
 ```
 
+Apparently that also works:
+
+```bash
+tpm2_readpublic -c 0x81000004 -o /tmp/key.pub
+```
+
 #### Testing signing with OpenSSL CLI
 
 ```bash
@@ -73,7 +79,9 @@ tpm2_create -C primary.ctx -g rsapss-sha256 -G rsa -u key.pub -r key.priv -a "no
 
 # this creates a key
 tpm2_createprimary -C o -g sha256 -G rsa2048:rsapss:null -c primary.ctx -a 'fixedtpm|fixedparent|sensitivedataorigin|userwithauth|noda|sign'
-# | decrypt?
+# | decrypt is needed for ENGINE APIs to work since they use that underneath
+tpm2_createprimary -C o -g sha256 -G rsa2048:rsapss:null -c primary.ctx -a 'fixedtpm|fixedparent|sensitivedataorigin|userwithauth|noda'
+
 # Stores and prints the handle
 tpm2_evictcontrol -C o -c primary.ctx
 # if passed 0x81000000 as last argument it can be forced to use that handle number
@@ -94,4 +102,69 @@ openssl pkeyutl -provider tpm2 -inkey handle:0x81000004 -sign -pkeyopt rsa_paddi
 
 # not working
 tpm2_create -C primary.ctx -g sha256 -G rsa2048:rsapss:null -u key.pub -r key.priv -a 'restricted|fixedtpm|fixedparent|sensitivedataorigin|userwithauth|sign'
+```
+
+
+## Building tpm2-tss-engine
+
+To enable extra logging:
+
+```
+export TSS2_LOG=all+TRACE
+```
+
+everything as one INSTALL.md page but this worked for me - ./configure produced bunch of warnings treated as errors which following suppresses:
+
+```
+./configure CFLAGS='-DOPENSSL_SUPPRESS_DEPRECATED -Wno-incompatible-pointer-types -Wno-discarded-qualifiers'
+```
+
+Check if works after:
+```
+openssl engine -t -c tpm2tss
+```
+
+ that prints following for me:
+
+ ```
+(tpm2tss) TPM2-TSS engine for OpenSSL
+ [RSA, RAND]
+     [ available ]
+4007A032E27F0000:error:1280006A:DSO support routines:dlfcn_bind_func:could not bind to the requested symbol name:../crypto/dso/dso_dlfcn.c:188:symname(EVP_PKEY_base_id): /usr/lib/x86_64-linux-gnu/engines-3/tpm2tss.so: undefined symbol: EVP_PKEY_base_id
+4007A032E27F0000:error:1280006A:DSO support routines:DSO_bind_func:could not bind to the requested symbol name:../crypto/dso/dso_lib.c:176:
+ ```
+
+ Per https://github.com/openssl/openssl/issues/17962 those errors can be ignored.
+
+
+### Signing with CLI
+
+```
+# working provider stuff
+openssl pkeyutl -provider tpm2 -inkey handle:0x81000004 -sign -pkeyopt rsa_padding_mode:pss -pkeyopt rsa_pss_saltlen:-1 -pkeyopt digest:sha256 -in testdata.dgst -out testdata.sig
+
+
+-keyform engine
+
+openssl pkeyutl -engine tpm2tss -inkey handle:0x81000004 -sign -pkeyopt rsa_padding_mode:pss -pkeyopt rsa_pss_saltlen:-1 -pkeyopt digest:sha256 -in testdata.dgst -out testdata.sig
+
+
+
+openssl dgst -engine tpm2tss -keyform engine -sha256 -sign 0x81000004 -out testdata.sig testdata
+
+
+
+openssl pkeyutl -engine tpm2tss -keyform engine -inkey 0x81000005 -pkeyopt rsa_padding_mode:pss -pkeyopt rsa_pss_saltlen:-1 -pkeyopt digest:sha256 -in testdata.dgst -out testdata.sig
+openssl pkeyutl -engine tpm2tss -inkey 0x81000006 -sign -keyform engine -pkeyopt rsa_padding_mode:pss -pkeyopt rsa_pss_saltlen:-1 -pkeyopt digest:sha256 -in testdata.dgst -out testdata.sig
+```
+
+
+## tpm2-tss-engine ECDSA
+
+```
+tpm2_createprimary -C o -g sha256 -G ecc256:ecdsa-sha256:null -c primary.ctx -a 'fixedtpm|fixedparent|sensitivedataorigin|userwithauth|noda|sign'
+
+# store handle and print it
+tpm2_evictcontrol -C o -c primary.ctx
+# 0x81000007
 ```
