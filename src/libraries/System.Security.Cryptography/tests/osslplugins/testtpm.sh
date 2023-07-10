@@ -36,6 +36,7 @@ else
     (
         set -e
         cd "$ssc_tests_path"
-        dotnet test --filter "FullyQualifiedName=System.Security.Cryptography.Tests.OpenSslNamedKeysTests.Engine_OpenExistingTPMPrivateKey"
+        #dotnet test --filter "FullyQualifiedName=System.Security.Cryptography.Tests.OpenSslNamedKeysTests.Engine_OpenExistingTPMPrivateKey"
+        dotnet test --filter "FullyQualifiedName~System.Security.Cryptography.Tests.OpenSslNamedKeysTests.TssMsr_"
     )
 fi

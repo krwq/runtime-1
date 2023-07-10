@@ -8,8 +8,8 @@ using System.Security.Cryptography.EcDsa.Tests;
 using System.Security.Cryptography.X509Certificates.Tests;
 using Test.Cryptography;
 using Xunit;
+using System.Formats.Asn1;
 using Tpm2Lib;
-using static Tpm2Lib.Csp;
 
 namespace System.Security.Cryptography.Tests
 {
@@ -197,29 +197,74 @@ namespace System.Security.Cryptography.Tests
         }
 
         [Fact]
-        public static void Engine_OpenExistingTPMPrivateKeyUsingTssMsr()
+        public static void TssXXXMsr_SignUsingExistingRsaTPMPrivateKey()
         {
-            Console.WriteLine("connecting to TPM");
+            Console.WriteLine("rsa creating Linux TPM");
             Tpm2Device device = new LinuxTpmDevice();
+            Console.WriteLine("rsa connecting to TPM");
+            device.Connect();
+            Tpm2 tpm = new Tpm2(device);
+
+            Console.WriteLine("rsa opening handle");
+            TpmHandle handle = new TpmHandle(0x81000004);//TpmHandle.Persistent(0x81000004);
+            RSA pri = new RSATssMsr(tpm, handle);
+            Console.WriteLine("rsa getting key");
+            using RSA bad = RSA.Create();
+
+            byte[] data = new byte[] { 1, 2, 3, 1, 1, 2, 3 };
+            Console.WriteLine("rsa signing");
+            byte[] signature = pri.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+            Console.WriteLine("rsa signing with bad key");
+            byte[] badSignature = bad.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+            Assert.NotEqual(data, signature);
+            Console.WriteLine("rsa verifying good signature");
+            Assert.True(pri.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+
+            Console.WriteLine("rsa verifying tampered signature");
+            signature[0] ^= 1;
+            Assert.False(pri.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+            signature[0] ^= 1;
+
+            Console.WriteLine("rsa verifying bad signature");
+            Assert.False(pri.VerifyData(data, badSignature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+            // RSAParameters rsaParams = priKey.ExportParameters(includePrivateParameters: true);
+            // Assert.NotNull(rsaParams.D);
+            // Assert.Equal(s_rsaPubKey, priKey.ExportRSAPublicKey());
+        }
+
+        [Fact]
+        public static void TssMsr_SignUsingExistingEcdsaTPMPrivateKey()
+        {
+            Console.WriteLine("ecdsa creating Linux TPM");
+            Tpm2Device device = new LinuxTpmDevice();
+            Console.WriteLine("ecdsa connecting to TPM");
             device.Connect();
             Tpm2 tpm = new Tpm2(device);
 
             Console.WriteLine("opening handle");
-            TpmHandle handle = TpmHandle.Persistent(0x81000004);
-            RSA pri = new RSATssMsr(tpm, handle);
-            Console.WriteLine("getting key");
-            using RSA bad = RSA.Create();
+            TpmHandle handle = new TpmHandle(0x81000007);
+            ECDsa pri = new ECDsaTssMsr(tpm, handle);
+            Console.WriteLine("ecdsa getting key");
+            using ECDsa bad = ECDsa.Create();
 
             byte[] data = new byte[] { 1, 2, 3, 1, 1, 2, 3 };
-            Console.WriteLine("signing");
-            byte[] signature = pri.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
-            Console.WriteLine("signing with bad key");
-            byte[] badSignature = bad.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+            Console.WriteLine("ecdsa signing");
+            byte[] signature = pri.SignData(data, HashAlgorithmName.SHA256);
+            Console.WriteLine("ecdsa signing with bad key");
+            byte[] badSignature = bad.SignData(data, HashAlgorithmName.SHA256);
             Assert.NotEqual(data, signature);
-            Console.WriteLine("verifying good signature");
-            Assert.True(pri.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
-            Console.WriteLine("verifying bad signature");
-            Assert.False(pri.VerifyData(data, badSignature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+            Console.WriteLine("ecdsa verifying good signature");
+            Assert.True(pri.VerifyData(data, signature, HashAlgorithmName.SHA256));
+
+            Console.WriteLine("ecdsa verifying tampered signature");
+            // we don't want to mess up wrapper for R and S
+            const int tamperIndex = 15;
+            signature[tamperIndex] ^= 1;
+            Assert.False(pri.VerifyData(data, signature, HashAlgorithmName.SHA256));
+            signature[tamperIndex] ^= 1;
+
+            Console.WriteLine("ecdsa verifying bad signature");
+            Assert.False(pri.VerifyData(data, badSignature, HashAlgorithmName.SHA256));
             // RSAParameters rsaParams = priKey.ExportParameters(includePrivateParameters: true);
             // Assert.NotNull(rsaParams.D);
             // Assert.Equal(s_rsaPubKey, priKey.ExportRSAPublicKey());
@@ -285,14 +330,26 @@ namespace System.Security.Cryptography.Tests
             _keyHandle = keyHandle;
         }
 
-        public override RSAParameters ExportParameters(bool includePrivateParameters) => throw new NotImplementedException();
-        public override void ImportParameters(RSAParameters parameters) => throw new NotImplementedException();
-        public unsafe override byte[] SignHash(byte[] hash, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
+        public override RSAParameters ExportParameters(bool includePrivateParameters)
         {
-            // Convert the hash to a TpmHash.
-            TpmAlgId algId = MapHashAlgorithm(hashAlgorithm);
+            if (includePrivateParameters)
+            {
+                // or are there exportable as well?
+                throw new InvalidOperationException();
+            }
 
-            TpmHash tpmHash = new TpmHash(algId, hash);
+            // TODO: figure out output of:
+            // TpmPublic keyPublic = _tpm.ReadPublic(_keyHandle, out byte[] name, out byte[] qualifiedName);
+            // Console.WriteLine($"keyPublic = {(keyPublic.ToString() ?? "<null>")}");
+            throw new NotImplementedException();
+        }
+        public override void ImportParameters(RSAParameters parameters) => throw new NotImplementedException();
+
+        public override byte[] SignHash(byte[] hash, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
+        {
+            TpmAlgId hashAlgId = MapHashAlgorithm(hashAlgorithm);
+
+            //TpmHash tpmHash = new TpmHash(hashAlgId, hash);
 
             if (!padding.Equals(RSASignaturePadding.Pss))
             {
@@ -300,15 +357,37 @@ namespace System.Security.Cryptography.Tests
             }
 
             // Sign the hash.
-            ISignatureUnion signatureUnion = _tpm.Sign(_keyHandle, tpmHash, null, TpmHashCheck.Null());
+            //Console.WriteLine($"Sign({_keyHandle}, {tpmHash})");
+            ISignatureUnion signatureUnion = _tpm.Sign(_keyHandle, hash, new SchemeRsapss(hashAlgId), TpmHashCheck.Null());
 
             // Convert the signature to a byte array.
-            SignatureRsassa signature = signatureUnion as SignatureRsassa;
+            SignatureRsapss signature = signatureUnion as SignatureRsapss;
             if (signature == null)
             {
-                throw new CryptographicException("Invalid signature.");
+                throw new CryptographicException($"Signing failed");
             }
+
             return signature.sig;
+        }
+
+        public override bool VerifyHash(byte[] hash, byte[] signature, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
+        {
+            TpmAlgId hashAlgId = MapHashAlgorithm(hashAlgorithm);
+
+            if (!padding.Equals(RSASignaturePadding.Pss))
+            {
+                throw new Exception("Only PSS padding is supported.");
+            }
+
+            try
+            {
+                TkVerified verified = _tpm.VerifySignature(_keyHandle, hash, new SignatureRsapss(hashAlgId, signature));
+                return verified.tag == TpmSt.Verified;
+            }
+            catch (TpmException)
+            {
+                return false;
+            }
         }
 
         private static TpmAlgId MapHashAlgorithm(HashAlgorithmName hashAlgorithm)
@@ -323,6 +402,87 @@ namespace System.Security.Cryptography.Tests
                 default:
                     throw new CryptographicException("Unsupported hash algorithm.");
             }
+        }
+    }
+
+    public class ECDsaTssMsr : ECDsa
+    {
+        private Tpm2 _tpm;
+        private TpmHandle _keyHandle;
+
+        public ECDsaTssMsr(Tpm2 tpm, TpmHandle keyHandle)
+        {
+            _tpm = tpm;
+            _keyHandle = keyHandle;
+
+            TpmPublic keyPublic = _tpm.ReadPublic(_keyHandle, out byte[] name, out byte[] qualifiedName);
+            Console.WriteLine($"keyPublic = {(keyPublic.ToString() ?? "<null>")}");
+        }
+
+        // TODO: override Export related stuff
+
+        public override byte[] SignHash(byte[] hash)
+        {
+            // TODO: TpmAlgId.Sha256 is hardcoded here but there is no HashAlgorithm argument like in RSA
+            // TODO: possibly there is a property/field on ECDsa somewhere
+            ISignatureUnion signatureUnion = _tpm.Sign(_keyHandle, hash, new SchemeEcdsa(TpmAlgId.Sha256), TpmHashCheck.Null());
+
+            Console.WriteLine(signatureUnion?.GetType().FullName ?? "<null>");
+
+            // Convert the signature to a byte array.
+            SignatureEcdsa signature = signatureUnion as SignatureEcdsa;
+            if (signature == null)
+            {
+                Console.WriteLine($"ecdssignaturetype={(signature?.GetType().FullName ?? "<null>")}");
+                throw new CryptographicException("Invalid signature.");
+            }
+
+            return ConcatenateRAndS(signature.signatureR, signature.signatureS);
+        }
+
+        public override bool VerifyHash(byte[] hash, byte[] signature)
+        {
+            try
+            {
+                SplitRAndS(signature, out byte[] r, out byte[] s);
+                // TODO: TpmAlgId.Sha256 is hardcoded here but there is no HashAlgorithm argument like in RSA
+                // TODO: possibly there is a property/field on ECDsa somewhere
+                TkVerified verified = _tpm.VerifySignature(_keyHandle, hash, new SignatureEcdsa(TpmAlgId.Sha256, r, s));
+                return verified.tag == TpmSt.Verified;
+            }
+            // questionable since SplitRAndS does decoding - tampered wrapper always means tampered signature
+            // but returning false seems too mild
+            // catch (AsnContentException)
+            // {
+            //     return false;
+            // }
+            catch (TpmException)
+            {
+                return false;
+            }
+        }
+
+        // TODO: this is improvisation, I'm not sure what's actual algorithm
+        private static byte[] ConcatenateRAndS(byte[] r, byte[] s)
+        {
+            AsnWriter writer = new AsnWriter(AsnEncodingRules.DER);
+            writer.PushSequence();
+
+            writer.WriteInteger(r);
+            writer.WriteInteger(s);
+
+            writer.PopSequence();
+
+            return writer.Encode();
+        }
+
+        private static void SplitRAndS(byte[] signature, out byte[] r, out byte[] s)
+        {
+            AsnReader reader = new AsnReader(signature, AsnEncodingRules.DER);
+            AsnReader sequenceReader = reader.ReadSequence();
+
+            r = sequenceReader.ReadIntegerBytes().ToArray();
+            s = sequenceReader.ReadIntegerBytes().ToArray();
         }
     }
 
