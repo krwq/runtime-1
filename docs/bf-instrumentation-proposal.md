@@ -10,26 +10,18 @@ The gap is **observability**: discover which type names actually flow through `B
 
 - `System.Runtime.Serialization.Formatters.Binary.BinaryFormatterEventSource` (in the compat package, `internal`) already emits ETW events for serialization / deserialization start, stop, and per-object. It does not surface the `assemblyName` / `typeName` strings used during binder resolution. Adding a new ETW event for type resolution alongside this source would require wiring a consumer-side ETW pipeline and would not give a handler a managed-code vantage point on each resolution.
 - `SerializationBinder` (public, abstract, in the compat package) is the per-`BinaryFormatter`-instance hook for observation. It is unsuitable for process-wide instrumentation because it must be wired up per instance.
-- `Type.GetType(string)` has no comparable extension point. `AppDomain.TypeResolve` only fires for types the runtime fails to resolve through normal means; it cannot observe successful resolutions.
+- `Type.GetType(string)` has no comparable extension point. `AssemblyLoadContext.TypeResolve` (formerly `AppDomain.TypeResolve`) only fires for types the runtime fails to resolve through normal means; it cannot observe successful resolutions.
 
-## Design
+## API
 
-A new public static event on each of `System.Type` and `System.Runtime.Serialization.Formatters.Binary.BinaryFormatter` surfaces every type resolution.
-
-The events ship:
-
-| Target | Where the events live |
-|---|---|
-| .NET Framework (net481 servicing) | Inbox in `mscorlib.dll` (same assembly that already owns both `System.Type` and `BinaryFormatter` on .NET Framework). Not added to the targeting pack. |
-| .NET 11 (net11.0) | `Type.TypeResolving` inbox in `System.Private.CoreLib`. `BinaryFormatter.TypeResolving` in the `System.Runtime.Serialization.Formatters` compat package (the only place `BinaryFormatter` is functional on modern .NET). |
-| .NET 6 / 7 / 8 / 9 / 10 | No runtime change. Customers on those runtimes upgrade to .NET 11, or use the wrapper package on .NET Framework. |
-| Multi-targeted code (netfx + modern .NET) | A `Microsoft.Bcl.Serialization.Instrumentation` package provides a netfx-only helper that reflects against the inbox API. The .NET Framework targeting pack does not surface the events (targeting packs are frozen across netfx versions). Modern-.NET TFMs reference the inbox / compat-package members directly. |
+A new public static event on each of `System.Type` and `System.Runtime.Serialization.Formatters.Binary.BinaryFormatter` surfaces every type resolution. On .NET Framework, the event is also re-exposed through a netfx-only `Microsoft.Bcl.Serialization.Instrumentation` wrapper package because the .NET Framework targeting pack is frozen and does not surface the new inbox surface to compilers.
 
 Putting the events directly on `Type` and `BinaryFormatter` follows strong reviewer feedback that the feature should live on the types whose behavior it instruments, rather than on a sidecar static class. A sidecar `*Instrumentation` class in a separate namespace is kept as an alternative below.
 
-### Public API
-
 ```csharp
+// SHIPS:
+//   net11.0:                       inbox in System.Private.CoreLib
+//   net481 (considered for servicing): inbox in mscorlib.dll (not surfaced through the targeting pack)
 namespace System
 {
     public partial class Type
@@ -47,6 +39,9 @@ namespace System
     }
 }
 
+// SHIPS:
+//   net11.0:                       in the System.Runtime.Serialization.Formatters compat package
+//   net481 (considered for servicing): inbox in mscorlib.dll (not surfaced through the targeting pack)
 namespace System.Runtime.Serialization.Formatters.Binary
 {
     public partial class BinaryFormatter
@@ -63,80 +58,18 @@ namespace System.Runtime.Serialization.Formatters.Binary
         public string TypeName { get; }
     }
 }
-```
 
-Semantics:
-
-- `Type.TypeResolving` fires at the start of resolving a top-level type name inside `Type.GetType(string, ...)` and `Assembly.GetType`, before the runtime attempts any assembly load, any user-supplied `assemblyResolver` / `typeResolver`, and any `AssemblyLoadContext.TypeResolve` (formerly `AppDomain.TypeResolve`) fallback. It fires once per resolution request regardless of whether resolution ultimately succeeds, and only for the parsed top-level type name (nested-type walking, generic arguments, and array element types are not reported individually by this event). Exactly which overloads of `Type.GetType` surface the event is defined by the resolver entry points shared by all of them; there is no observability gap between overloads.
-- `BinaryFormatter.TypeResolving` fires during deserialization each time the formatter is about to bind an `(assemblyName, typeName)` pair read from the serialized stream, before any `SerializationBinder.BindToType` is consulted. Repeated identical pairs within a single deserialization are deduplicated by the formatter's per-reader cache and do not re-fire the event.
-- Multiple subscribers are invoked in subscription order. Handlers should not throw; an exception from a handler propagates to the caller of `Type.GetType` / `BinaryFormatter.Deserialize` and subsequent handlers do not run.
-
-### Usage
-
-```csharp
-BinaryFormatter.TypeResolving += (_, e) =>
-{
-    Log.Warn($"BF resolving [{e.AssemblyName}] {e.TypeName}");
-};
-
-Type.TypeResolving += (_, e) =>
-{
-    Log.Info($"Type.GetType: [{e.AssemblyName}] {e.TypeName}");
-};
-```
-
-## Packaging and naming
-
-### Inbox API naming
-
-On every target that ships the inbox API (net481 servicing and net11.0), the types and members have identical fully-qualified names:
-
-- `System.Type.TypeResolving` (event) — ships on net481 and net11.0
-- `System.TypeResolvingEventArgs` (event args) — ships on net481 and net11.0
-- `System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.TypeResolving` (event) — ships on net481 (inbox in `mscorlib`) and on net11.0 (in the `System.Runtime.Serialization.Formatters` compat package)
-- `System.Runtime.Serialization.Formatters.Binary.BinaryFormatterTypeResolvingEventArgs` (event args) — same shipping vehicles as the event above
-
-Keeping the inbox names in lockstep across targets means multi-targeted source that branches per-TFM sees the same API shape on both sides of the branch. A separate netfx-specific name was rejected because it would force consumers to write two different subscription patterns for a single feature.
-
-### `Microsoft.Bcl.Serialization.Instrumentation` (netfx-only wrapper)
-
-| Property | Value |
-|---|---|
-| Package ID | `Microsoft.Bcl.Serialization.Instrumentation` |
-| Target frameworks | `$(NetFrameworkMinimum)` — the convention shared by all `Microsoft.Bcl.*` packages in dotnet/runtime (currently `net462`). No `netstandard2.0`, no modern-.NET asset. The TFM choice is purely conventional: .NET Framework targeting packs are frozen across versions and do not surface the new events regardless of which netfx TFM is picked, so reflection against the running runtime is what actually determines availability. Using the shared `$(NetFrameworkMinimum)` keeps the package installable on the broadest set of supported netfx versions; the reflection lookup no-ops on patch levels that predate the inbox API. |
-| Assembly name | `Microsoft.Bcl.Serialization.Instrumentation.dll` |
-| Dependencies | None. |
-
-The wrapper exists for one reason: the .NET Framework targeting pack is frozen and will not be updated to expose the new inbox events. A library multi-targeted at netfx + modern .NET cannot call `Type.TypeResolving` or `BinaryFormatter.TypeResolving` from its netfx build directly, so it references this package on its netfx TFM only. On modern .NET the consumer calls the events directly — the wrapper has no role there, and shipping a modern-.NET asset would either duplicate the events (by introducing a second name) or silently no-op (on .NET 6-10, where the API is not serviced).
-
-A `netstandard2.0` asset is intentionally not provided. It would resolve on .NET 6 / 7 / 8 / 9 / 10 where the underlying API does not exist and is not being serviced; the wrapper would silently no-op there, masking the fact that instrumentation is unavailable.
-
-#### Why the wrapper can't be a pure `[TypeForwardedTo]` bridge
-
-`[assembly: TypeForwardedTo]` forwards **types**, not **members**. The inbox API adds a static event to the existing types `Type` and `BinaryFormatter`; those types already exist in the .NET Framework targeting pack (without the new member), and there is no way to forward a new member onto an already-defined type. The wrapper therefore cannot re-export `Type.TypeResolving` under its canonical name to netfx consumers; it must provide its own helper.
-
-The two event-args types (`TypeResolvingEventArgs`, `BinaryFormatterTypeResolvingEventArgs`) *are* new types and *can* be type-forwarded, so the wrapper forwards them to `mscorlib`:
-
-```csharp
-// In Microsoft.Bcl.Serialization.Instrumentation.dll (netfx asset)
-[assembly: TypeForwardedTo(typeof(System.TypeResolvingEventArgs))]
-[assembly: TypeForwardedTo(typeof(System.Runtime.Serialization.Formatters.Binary.BinaryFormatterTypeResolvingEventArgs))]
-```
-
-Consumer handlers therefore use the same `EventArgs` type identity whether they run on netfx (via the wrapper) or on modern .NET (inbox).
-
-#### Wrapper helper API
-
-Because the events themselves cannot be forwarded, the wrapper exposes its own subscription surface plus an `IsSupported` probe so callers can detect whether the inbox API is present on the running runtime:
-
-```csharp
+// SHIPS:
+//   Microsoft.Bcl.Serialization.Instrumentation NuGet package, single $(NetFrameworkMinimum) asset.
+//   This package is .NET Framework only — it has no netstandard or modern-.NET asset.
+//   Modern-.NET consumers reference the inbox API above directly; they do not see this namespace.
 namespace Microsoft.Bcl.Serialization.Instrumentation
 {
     public static class TypeInstrumentation
     {
         // true when the running .NET Framework patch level exposes the inbox
         // System.Type.TypeResolving event. false on older patch levels; in that
-        // case subscription is a no-op.
+        // case subscribing/unsubscribing is a no-op.
         public static bool IsSupported { get; }
 
         public static event EventHandler<TypeResolvingEventArgs>? TypeResolving;
@@ -150,35 +83,119 @@ namespace Microsoft.Bcl.Serialization.Instrumentation
 
         public static event EventHandler<BinaryFormatterTypeResolvingEventArgs>? TypeResolving;
     }
+
+    // Wrapper-defined copies of the EventArgs. Same shape as the inbox versions
+    // but a different CLR type identity (see "Type identity split" under Packaging).
+    public sealed class TypeResolvingEventArgs : EventArgs
+    {
+        public string? AssemblyName { get; }
+        public string TypeName { get; }
+        public bool IgnoreCase { get; }
+    }
+
+    public sealed class BinaryFormatterTypeResolvingEventArgs : EventArgs
+    {
+        public System.Runtime.Serialization.Formatters.Binary.BinaryFormatter Formatter { get; }
+        public string AssemblyName { get; }
+        public string TypeName { get; }
+    }
 }
 ```
 
-Both helper classes ship only in the wrapper package (`$(NetFrameworkMinimum)` asset). They have no counterpart on modern .NET; modern-.NET consumers subscribe to the inbox events directly.
+### Semantics
 
-Internally, `add`/`remove` accessors reflect against the inbox `Type.TypeResolving` and `BinaryFormatter.TypeResolving` events using `EventInfo` and bridge the handler delegate. `IsSupported` caches the result of the reflection lookup. The implementation is intentionally opaque — it is the one place in this design where the "nasty details" live. Consumers do not see it; they just check `IsSupported` and subscribe.
+- `Type.TypeResolving` fires at the start of resolving a top-level type name inside `Type.GetType(string, ...)` and `Assembly.GetType`, before the runtime attempts any assembly load, any user-supplied `assemblyResolver` / `typeResolver`, and any `AssemblyLoadContext.TypeResolve` (formerly `AppDomain.TypeResolve`) fallback. It fires once per resolution request regardless of whether resolution ultimately succeeds, and only for the parsed top-level type name (nested-type walking, generic arguments, and array element types are not reported individually by this event). All overloads of `Type.GetType` route through the same resolver entry points, so there is no observability gap between overloads.
+- `BinaryFormatter.TypeResolving` fires during deserialization each time the formatter is about to bind an `(assemblyName, typeName)` pair read from the serialized stream, before any `SerializationBinder.BindToType` is consulted. Repeated identical pairs within a single deserialization are deduplicated by the formatter's per-reader cache and do not re-fire the event.
+- The wrapper's `TypeInstrumentation.TypeResolving` and `BinaryFormatterInstrumentation.TypeResolving` events on .NET Framework forward subscribers to the corresponding inbox events. Firing semantics are identical; the only behavioral difference is that `IsSupported == false` makes subscribe/unsubscribe a silent no-op on netfx patch levels that predate the inbox API.
+- Multiple subscribers are invoked in subscription order. Handlers should not throw; an exception from a handler propagates to the caller of `Type.GetType` / `BinaryFormatter.Deserialize` and subsequent handlers do not run.
 
-A consumer that multi-targets therefore writes:
+### Usage
+
+On modern .NET (net11.0 or later, with the compat package referenced for the `BinaryFormatter` half):
 
 ```csharp
-EventHandler<TypeResolvingEventArgs> handler = (_, e) => { /* ... */ };
-
-#if NETFRAMEWORK
-if (Microsoft.Bcl.Serialization.Instrumentation.TypeInstrumentation.IsSupported)
+BinaryFormatter.TypeResolving += (_, e) =>
 {
-    Microsoft.Bcl.Serialization.Instrumentation.TypeInstrumentation.TypeResolving += handler;
-}
-#else
-Type.TypeResolving += handler;
-#endif
+    Log.Warn($"BF resolving [{e.AssemblyName}] {e.TypeName}");
+};
+
+Type.TypeResolving += (_, e) =>
+{
+    Log.Info($"Type.GetType: [{e.AssemblyName}] {e.TypeName}");
+};
 ```
 
-The `#if` is a consequence of not being able to forward members onto an existing type; the `EventArgs` type identity is preserved across the branches so the handler is reusable.
+On .NET Framework, with the `Microsoft.Bcl.Serialization.Instrumentation` package referenced:
 
-On a .NET Framework patch level that predates the inbox API, `IsSupported` returns `false` and subscription is a no-op rather than throwing. `IsSupported` lets callers react explicitly — for example, by logging that instrumentation is unavailable rather than silently discarding subscriptions.
+```csharp
+using Microsoft.Bcl.Serialization.Instrumentation;
 
-### Servicing posture
+if (BinaryFormatterInstrumentation.IsSupported)
+{
+    BinaryFormatterInstrumentation.TypeResolving += (_, e) =>
+    {
+        Log.Warn($"BF resolving [{e.AssemblyName}] {e.TypeName}");
+    };
+}
 
-- **net481** — new public static event on `System.Type` and on `System.Runtime.Serialization.Formatters.Binary.BinaryFormatter` in the next servicing baseline that accepts new surface. Documented on learn.microsoft.com. Not added to the targeting pack.
+if (TypeInstrumentation.IsSupported)
+{
+    TypeInstrumentation.TypeResolving += (_, e) =>
+    {
+        Log.Info($"Type.GetType: [{e.AssemblyName}] {e.TypeName}");
+    };
+}
+```
+
+The two examples are deliberately separate: each TFM consumes the API native to that TFM. Multi-targeted libraries can branch source per TFM via the standard MSBuild mechanisms; the wrapper and inbox surfaces are not interoperable at the handler-type level (see the type-identity note under Packaging).
+
+## Packaging
+
+### Inbox shipping vehicles
+
+| Type / member | net11.0 | net481 (considered for servicing) |
+|---|---|---|
+| `System.Type.TypeResolving` | `System.Private.CoreLib` | `mscorlib.dll` |
+| `System.TypeResolvingEventArgs` | `System.Private.CoreLib` | `mscorlib.dll` |
+| `System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.TypeResolving` | `System.Runtime.Serialization.Formatters` compat package | `mscorlib.dll` |
+| `System.Runtime.Serialization.Formatters.Binary.BinaryFormatterTypeResolvingEventArgs` | `System.Runtime.Serialization.Formatters` compat package | `mscorlib.dll` |
+
+The fully-qualified names are the same on both targets. A separate netfx-specific name was rejected because it would force consumers who happen to compile against the inbox surface (post-servicing) to use a different pattern from modern-.NET consumers for what is functionally the same feature.
+
+### `Microsoft.Bcl.Serialization.Instrumentation` (.NET Framework only)
+
+| Property | Value |
+|---|---|
+| Package ID | `Microsoft.Bcl.Serialization.Instrumentation` |
+| Target framework | `$(NetFrameworkMinimum)` — the convention shared by all `Microsoft.Bcl.*` packages in dotnet/runtime (currently `net462`). Single asset; no `netstandard`, no modern-.NET TFM. |
+| Assembly name | `Microsoft.Bcl.Serialization.Instrumentation.dll` |
+| Dependencies | None. |
+
+The wrapper exists because the .NET Framework targeting pack is frozen and will not be amended to surface the new inbox events at compile time, even after they ship in a serviced `mscorlib`. The wrapper is the only way for code compiled against the `$(NetFrameworkMinimum)` reference assemblies to call the feature.
+
+The package being .NET Framework only is deliberate. Modern-.NET consumers reference the inbox API directly; they have no use for the wrapper. A `netstandard2.0` asset is intentionally not provided because it would resolve on .NET 6 / 7 / 8 / 9 / 10 — runtimes that do not have the inbox API and are not being serviced for it — and silently no-op there, masking the fact that instrumentation is unavailable.
+
+The TFM choice (`$(NetFrameworkMinimum)`) is conventional and reach-oriented: the targeting pack is frozen across all netfx versions, so the new types are not visible to the compiler regardless of which netfx TFM is picked, and the runtime availability is determined at execution time by reflection. Using the lowest supported netfx TFM keeps the package installable everywhere; `IsSupported` reports actual runtime availability.
+
+### Why the wrapper cannot use `[TypeForwardedTo]`
+
+`[assembly: TypeForwardedTo]` forwards **types**, not **members**. The inbox API adds a static event to the existing types `Type` and `BinaryFormatter`; there is no way to forward a new member onto an already-defined type. The wrapper therefore cannot re-export `Type.TypeResolving` under its canonical name to netfx consumers, which is why it exposes its own `TypeInstrumentation` / `BinaryFormatterInstrumentation` static classes instead.
+
+The two event-args types are new types and could in principle be type-forwarded. In practice they cannot be either: `[assembly: TypeForwardedTo(typeof(System.TypeResolvingEventArgs))]` requires the C# compiler to resolve `System.TypeResolvingEventArgs` at build time. The .NET Framework targeting pack is frozen and will not be amended to expose the new type, so on a `$(NetFrameworkMinimum)` TFM `typeof(System.TypeResolvingEventArgs)` does not compile. The only way to make it compile is to add a `<Reference Include="mscorlib" HintPath="..." />` pointing at a serviced runtime `mscorlib.dll`, which is the long-standing anti-pattern of referencing implementation assemblies from outside the targeting pack and is disallowed by the repo's project guidelines. Every existing `Microsoft.Bcl.*` package in dotnet/runtime uses `[TypeForwardedTo]` only on `netstandard2.1`-compatible / modern-.NET TFMs and **defines the downlevel types directly in the wrapper assembly** on the netfx asset.
+
+The wrapper takes the same shape: it defines `TypeResolvingEventArgs` and `BinaryFormatterTypeResolvingEventArgs` in its own assembly. This works on every netfx patch level — including patches that lack the inbox API and patches that have it.
+
+### Type identity split
+
+Because the wrapper defines its own EventArgs, on a serviced net481 host that also has the inbox copy in `mscorlib`, two distinct CLR types co-exist with the same namespace + name (`System.TypeResolvingEventArgs` in `Microsoft.Bcl.Serialization.Instrumentation.dll`, and `System.TypeResolvingEventArgs` in `mscorlib.dll`). The CLR identifies a type by `{namespace, name, defining-assembly}`, so these are not the same type and an `EventHandler<>` bound to one is not assignable to the other.
+
+The wrapper handles this internally: its `add`/`remove` accessors reflect against the inbox event using `EventInfo`, subscribe a private shim, and translate `inbox.TypeResolvingEventArgs → wrapper.TypeResolvingEventArgs` on every callback. The translation is single-purpose and cheap. Consumers that only ever code against the wrapper namespace see a single set of types and never observe the split.
+
+The split surfaces at the boundary between the two worlds: a handler compiled against `Microsoft.Bcl.Serialization.Instrumentation.TypeResolvingEventArgs` cannot be subscribed to the inbox `Type.TypeResolving` event directly. This is not a problem for code that targets only one TFM (which is what the wrapper is for), and it is not a problem for code that targets only modern .NET (which uses the inbox types end-to-end). It is a constraint on multi-targeted libraries: their handler signatures and subscription sites are TFM-specific, and the EventArgs type is not interchangeable across the netfx and modern-.NET branches.
+
+## Servicing posture
+
+- **net481** — under consideration for servicing: new public static event on `System.Type` and on `System.Runtime.Serialization.Formatters.Binary.BinaryFormatter` in the next servicing baseline that accepts new surface. If accepted, documented on learn.microsoft.com and not added to the targeting pack. If servicing is declined, the wrapper package is the only access path on netfx and `IsSupported` permanently returns `false`.
 - **net11.0 inbox** — `Type.TypeResolving` shipped through normal API review.
 - **net11.0 compat package** (`System.Runtime.Serialization.Formatters`) — `BinaryFormatter.TypeResolving` shipped in the next major version of the package. The compat package already owns `BinaryFormatter`'s runtime behavior on modern .NET and is the migration/hardening vehicle for it.
 - **.NET 6 / 7 / 8 / 9 / 10** — no servicing change. Backporting public API to in-service runtimes is avoided; the migration story for these runtimes is "upgrade to .NET 11."
@@ -194,6 +211,8 @@ Extending `BinaryFormatterEventSource` with a `TypeResolving` event and adding a
 An alternate shape — already prototyped on the `bf-events` branch — puts the public API in a new `System.Runtime.Serialization.Instrumentation` package with a single `netstandard2.0` asset:
 
 ```csharp
+// SHIPS: System.Runtime.Serialization.Instrumentation NuGet package, single netstandard2.0 asset.
+//        Same asset is used by net481, .NET 6-10, and net11.0 consumers.
 namespace System.Runtime.Serialization.Instrumentation
 {
     public static class TypeNameResolverInstrumentation
@@ -236,11 +255,11 @@ The static constructor of each `*Instrumentation` class reflects against the cor
 
 Shape properties:
 
-- **One package, one asset.** A `netstandard2.0` asset works uniformly on net481, net6-net10 (via the compat package for the BF half), and net11.0 (inbox for the `Type` half, compat package for the BF half). No netfx-specific wrapper is required; there is no `#if NETFRAMEWORK` in consumer code.
+- **One package, one asset.** A `netstandard2.0` asset works uniformly on net481, net6-net10 (via the compat package for the BF half), and net11.0 (inbox for the `Type` half, compat package for the BF half). No netfx-specific wrapper; no type-identity split; multi-targeted consumers reference one package and see one API.
 - **No new public surface on `Type` or `BinaryFormatter`.** Only two `internal static` methods per hook, consumed via reflection from the instrumentation package.
 - **Naming follows standard event-pair conventions** (`EventArgs` + `EventHandler` delegate) rather than `EventHandler<T>`; either could be chosen.
 
-Peer feedback on this proposal pushed toward putting the public events on the types being instrumented, which is what the chosen design above does. The tradeoff is that the chosen design requires new public surface on `Type` / `BinaryFormatter` across every target and a netfx-specific wrapper package to paper over the frozen targeting pack, whereas this alternative keeps the public API in one self-contained package and leaves `Type` / `BinaryFormatter` untouched.
+Peer feedback on this proposal pushed toward putting the public events on the types being instrumented, which is what the chosen design above does. The tradeoff is that the chosen design requires new public surface on `Type` / `BinaryFormatter` across every target and a netfx-only wrapper package that pays the type-identity-split cost, whereas this alternative keeps the public API in one self-contained package and leaves `Type` / `BinaryFormatter` untouched.
 
 ### All-reflection package targeting `internal` runtime hooks
 
@@ -252,5 +271,5 @@ A single OOB `netstandard2.0` package that registers callbacks against `internal
 - **Handler exceptions.** An exception from a handler propagates to the caller of `Type.GetType` / `BinaryFormatter.Deserialize`. This is the standard managed-event contract but must be documented, since `Type.GetType` callers in particular do not expect user code on the resolution path.
 - **Performance.** A static event with no subscribers is a single null check in the type resolution path — negligible. With subscribers it is one delegate invocation per resolved type, small relative to the cost of deserialization or `Type.GetType` itself.
 - **Trimming and Native AOT on modern .NET.** The events are statically referenced inbox API and are trim-safe.
-- **Wrapper package lifetime.** Tied to the .NET Framework migration window. Versioning follows the conventions of other `Microsoft.Bcl.*` packages in dotnet/runtime. When a consumer's lowest supported TFM has the inbox events, the package reference can be dropped.
+- **Wrapper EventArgs identity split.** Because the wrapper cannot use `[TypeForwardedTo]` to point at the inbox EventArgs (frozen netfx targeting pack), it defines its own copies. On serviced netfx patches that have the inbox API, two distinct CLR types co-exist for the same namespace + name. The wrapper translates internally; the constraint surfaces only at the netfx ↔ modern-.NET boundary in multi-targeted libraries. The sidecar alternative avoids this entirely.
 - **.NET Framework public API surface.** Adding new public API to `mscorlib` on .NET Framework 4.8.x is heavyweight. The surface is scoped to one event and one `EventArgs` on each of `Type` and `BinaryFormatter`; nothing speculative is added on that target.
